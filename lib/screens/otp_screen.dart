@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 
-class AuthLoginScreen extends StatefulWidget {
-  const AuthLoginScreen({super.key});
+class OtpScreen extends StatefulWidget {
+  const OtpScreen({super.key});
 
   @override
-  State<AuthLoginScreen> createState() => _AuthLoginScreenState();
+  State<OtpScreen> createState() => _OtpScreenState();
 }
 
-class _AuthLoginScreenState extends State<AuthLoginScreen> {
+class _OtpScreenState extends State<OtpScreen> {
   final _formKey = GlobalKey<FormState>();
-
-  String _emailOrUid = '';
-  String _password = '';
+  String _otp = '';
 
   @override
   Widget build(BuildContext context) {
@@ -30,40 +28,52 @@ class _AuthLoginScreenState extends State<AuthLoginScreen> {
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: FractionallySizedBox(
-                widthFactor: 0.85,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 430),
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.98),
-                      borderRadius: BorderRadius.circular(32),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
-                          blurRadius: 26,
-                          offset: const Offset(0, 18),
+          child: Stack(
+            children: [
+              Positioned(
+                left: 8,
+                top: 8,
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+              Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: FractionallySizedBox(
+                    widthFactor: 0.85,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 430),
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.98),
+                          borderRadius: BorderRadius.circular(32),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.06),
+                              blurRadius: 26,
+                              offset: const Offset(0, 18),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildHeader(theme),
-                        const SizedBox(height: 20),
-                        _buildForm(theme),
-                        const SizedBox(height: 18),
-                        _buildFooter(context, theme),
-                      ],
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildHeader(theme),
+                            const SizedBox(height: 20),
+                            _buildForm(theme),
+                            const SizedBox(height: 16),
+                            _buildFooter(context, theme),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -92,14 +102,14 @@ class _AuthLoginScreenState extends State<AuthLoginScreen> {
               ),
               alignment: Alignment.center,
               child: const Icon(
-                Icons.grid_view_rounded,
+                Icons.verified_user_rounded,
                 size: 18,
                 color: Colors.white,
               ),
             ),
             const SizedBox(width: 8),
             Text(
-              'CampusApp',
+              'Verify OTP',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -108,14 +118,14 @@ class _AuthLoginScreenState extends State<AuthLoginScreen> {
         ),
         const SizedBox(height: 18),
         Text(
-          'Welcome back',
+          'Enter the 6-digit code',
           style: theme.textTheme.headlineMedium?.copyWith(
-            fontSize: 24,
+            fontSize: 22,
           ),
         ),
         const SizedBox(height: 4),
         Text(
-          'Sign in to continue to your campus companion.',
+          'We\'ve sent a verification code to your registered email / phone.',
           style: theme.textTheme.bodyMedium?.copyWith(
             fontSize: 13,
             color: const Color(0xFF7A8A9C),
@@ -130,32 +140,31 @@ class _AuthLoginScreenState extends State<AuthLoginScreen> {
       key: _formKey,
       child: Column(
         children: [
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           TextFormField(
-            decoration: _inputDecoration(
-              label: 'Email or UID',
-              icon: Icons.alternate_email_rounded,
-            ),
-            onChanged: (value) => _emailOrUid = value.trim(),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            obscureText: true,
-            decoration: _inputDecoration(
-              label: 'Password',
-              icon: Icons.lock_rounded,
-            ).copyWith(
-              suffixIcon: TextButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/forgot-password');
-                },
-                child: const Text(
-                  'Forgot?',
-                  style: TextStyle(fontSize: 11),
-                ),
+            maxLength: 6,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: 'OTP',
+              counterText: '',
+              prefixIcon: const Icon(
+                Icons.pin_rounded,
+                size: 20,
+                color: Color(0xFF7A8A9C),
+              ),
+              labelStyle: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF7A8A9C),
+              ),
+              filled: true,
+              fillColor: const Color(0xFFF4F7FB),
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide.none,
               ),
             ),
-            onChanged: (value) => _password = value.trim(),
+            onChanged: (value) => _otp = value.trim(),
           ),
           const SizedBox(height: 18),
           SizedBox(
@@ -168,15 +177,16 @@ class _AuthLoginScreenState extends State<AuthLoginScreen> {
                   borderRadius: BorderRadius.circular(24),
                 ),
                 elevation: 0,
-                backgroundColor: const Color(0xFF3AA8F7),
+                backgroundColor: const Color(0xFF47D6C4),
                 foregroundColor: Colors.white,
               ),
               onPressed: () {
-                // In future: validate and auth; for now just go to main app
-                Navigator.pushReplacementNamed(context, '/home');
+                // In future: validate against backend
+                // For now, just go back to login or home as needed:
+                Navigator.pushReplacementNamed(context, '/login');
               },
               child: const Text(
-                'Sign In',
+                'Verify & Continue',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -192,10 +202,9 @@ class _AuthLoginScreenState extends State<AuthLoginScreen> {
   Widget _buildFooter(BuildContext context, ThemeData theme) {
     return Column(
       children: [
-        const Divider(height: 24, thickness: 0.7),
-        const SizedBox(height: 4),
+        const SizedBox(height: 10),
         Text(
-          'New to CampusApp?',
+          'Didn\'t receive the code?',
           style: theme.textTheme.bodyMedium?.copyWith(
             fontSize: 12,
             color: const Color(0xFF7A8A9C),
@@ -203,10 +212,10 @@ class _AuthLoginScreenState extends State<AuthLoginScreen> {
         ),
         TextButton(
           onPressed: () {
-            Navigator.pushReplacementNamed(context, '/signup');
+            // Later: trigger resend OTP
           },
           child: const Text(
-            'Create an account',
+            'Resend OTP',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -215,27 +224,6 @@ class _AuthLoginScreenState extends State<AuthLoginScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  InputDecoration _inputDecoration({
-    required String label,
-    required IconData icon,
-  }) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon, size: 20, color: const Color(0xFF7A8A9C)),
-      labelStyle: const TextStyle(
-        fontSize: 13,
-        color: Color(0xFF7A8A9C),
-      ),
-      filled: true,
-      fillColor: const Color(0xFFF4F7FB),
-      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide.none,
-      ),
     );
   }
 }
