@@ -108,7 +108,7 @@ class _AuthLoginScreenState extends State<AuthLoginScreen> {
         ),
         const SizedBox(height: 18),
         Text(
-          'Welcome back',
+          'Welcome :)',
           style: theme.textTheme.headlineMedium?.copyWith(
             fontSize: 24,
           ),

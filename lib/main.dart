@@ -65,7 +65,7 @@ class CampusCompanionApp extends StatelessWidget {
         '/login': (_) => const AuthLoginScreen(),
         '/signup': (_) => const AuthSignupScreen(),
         '/home': (_) => const _MainShell(), // your main app with bottom nav
-        '/forgot-password': (_) => const ForgotPasswordScreen(), // 🔹 NEW
+        '/forgot-password': (_) => const ForgotPasswordScreen(), 
         '/otp': (_) => const OtpScreen(), 
       },
     );
