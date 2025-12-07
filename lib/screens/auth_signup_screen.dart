@@ -102,7 +102,7 @@ class _AuthSignupScreenState extends State<AuthSignupScreen> {
             ),
             const SizedBox(width: 8),
             Text(
-              'CampusLink',
+              'CampusApp',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
