@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'screens/splash_screen.dart';
+import 'screens/auth_login_screen.dart';
+import 'screens/auth_signup_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/campus_assistant.dart';
 import 'screens/academic_hub.dart';
@@ -55,7 +58,12 @@ class CampusCompanionApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const _MainShell(),
+      home: const SplashScreen(),
+      routes: {
+        '/login': (_) => const AuthLoginScreen(),
+        '/signup': (_) => const AuthSignupScreen(),
+        '/home': (_) => const _MainShell(), // your main app with bottom nav
+      },
     );
   }
 }

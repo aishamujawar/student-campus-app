@@ -17,68 +17,71 @@ class AcademicHubScreen extends StatelessWidget {
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 430),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(18, 20, 18, 22),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.96),
-                borderRadius: BorderRadius.circular(36),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 30,
-                    offset: const Offset(0, 20),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        'Academic Hub',
-                        style: theme.textTheme.headlineMedium?.copyWith(
-                          fontSize: 22,
+          child: FractionallySizedBox(
+            widthFactor: 0.95, // 80% of screen width
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 430),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(18, 20, 18, 22),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.96),
+                  borderRadius: BorderRadius.circular(36),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 30,
+                      offset: const Offset(0, 20),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Academic Hub',
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            fontSize: 22,
+                          ),
                         ),
-                      ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
-                          color: const Color(0xFFE7F2FF),
-                        ),
-                        child: Row(
-                          children: const [
-                            Icon(
-                              Icons.school_rounded,
-                              size: 16,
-                              color: Color(0xFF2877E0),
-                            ),
-                            SizedBox(width: 6),
-                            Text(
-                              'Tools',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            color: const Color(0xFFE7F2FF),
+                          ),
+                          child: Row(
+                            children: const [
+                              Icon(
+                                Icons.school_rounded,
+                                size: 16,
                                 color: Color(0xFF2877E0),
                               ),
-                            ),
-                          ],
+                              SizedBox(width: 6),
+                              Text(
+                                'Tools',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF2877E0),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  _AcademicHeroBanner(theme: theme),
-                  const SizedBox(height: 18),
-                  _buildToolGrid(context),
-                ],
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    _AcademicHeroBanner(theme: theme),
+                    const SizedBox(height: 18),
+                    _buildToolGrid(context),
+                  ],
+                ),
               ),
             ),
           ),
@@ -96,6 +99,8 @@ class AcademicHubScreen extends StatelessWidget {
               child: _AcademicToolCard(
                 title: 'Calendar',
                 icon: Icons.calendar_month_rounded,
+                startColor: const Color(0xFF54C3F7), // similar to Campus Assistant
+                endColor: const Color(0xFF6FE0F4),
                 onTap: () => _open(context, const CalendarPage()),
               ),
             ),
@@ -104,6 +109,8 @@ class AcademicHubScreen extends StatelessWidget {
               child: _AcademicToolCard(
                 title: 'CGPA',
                 icon: Icons.calculate_rounded,
+                startColor: const Color(0xFF4B6BFF), // similar to Smart Budgeting
+                endColor: const Color(0xFF77B4FF),
                 onTap: () => _open(context, const CgpaPage()),
               ),
             ),
@@ -116,6 +123,8 @@ class AcademicHubScreen extends StatelessWidget {
               child: _AcademicToolCard(
                 title: 'Attendance',
                 icon: Icons.fact_check_rounded,
+                startColor: const Color(0xFF55D7C7), // similar to Academic Hub card
+                endColor: const Color(0xFF7BE6D9),
                 onTap: () => _open(context, const AttendancePage()),
               ),
             ),
@@ -124,6 +133,8 @@ class AcademicHubScreen extends StatelessWidget {
               child: _AcademicToolCard(
                 title: 'Assignments',
                 icon: Icons.task_rounded,
+                startColor: const Color(0xFF7B7CFF), // similar to CampusPay card
+                endColor: const Color(0xFFB0A8FF),
                 onTap: () => _open(context, const AssignmentsPage()),
               ),
             ),
@@ -136,6 +147,8 @@ class AcademicHubScreen extends StatelessWidget {
               child: _AcademicToolCard(
                 title: 'Timetable',
                 icon: Icons.schedule_rounded,
+                startColor: const Color(0xFF3AA8F7),
+                endColor: const Color(0xFF47D6C4),
                 onTap: () => _open(context, const TimetablePage()),
               ),
             ),
@@ -216,61 +229,76 @@ class _AcademicHeroBanner extends StatelessWidget {
 class _AcademicToolCard extends StatelessWidget {
   final String title;
   final IconData icon;
+  final Color startColor;
+  final Color endColor;
   final VoidCallback onTap;
 
   const _AcademicToolCard({
     required this.title,
     required this.icon,
+    required this.startColor,
+    required this.endColor,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return Material(
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(22),
-      onTap: onTap,
-      child: Ink(
-        height: 112,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFFE7F2FF),
-              Color(0xFFDDF9F3),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: Container(
+          height: 112,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: LinearGradient(
+              colors: [
+                startColor.withOpacity(0.97),
+                endColor.withOpacity(0.95),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: startColor.withOpacity(0.25),
+                blurRadius: 16,
+                offset: const Offset(0, 10),
+              ),
             ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
           ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                icon,
-                size: 22,
-                color: const Color(0xFF2877E0),
-              ),
-              const Spacer(),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF16222C),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  icon,
+                  size: 22,
+                  color: Colors.white,
                 ),
-              ),
-              const SizedBox(height: 3),
-              const Text(
-                'Open',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w400,
-                  color: Color(0xFF7A8A9C),
+                const Spacer(),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 3),
+                Text(
+                  'Open',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -28,30 +28,33 @@ class HomeScreen extends StatelessWidget {
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 430),
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(18, 20, 18, 22),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.96),
-                    borderRadius: BorderRadius.circular(36),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 30,
-                        offset: const Offset(0, 20),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildHeader(context),
-                      const SizedBox(height: 20),
-                      _buildHeroBanner(context),
-                      const SizedBox(height: 18),
-                      _buildFeatureGrid(context),
-                    ],
+              child: FractionallySizedBox(
+                widthFactor: 0.95, // 95% of screen width
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 430),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(18, 20, 18, 22),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.96),
+                      borderRadius: BorderRadius.circular(36),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 30,
+                          offset: const Offset(0, 20),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildHeader(context),
+                        const SizedBox(height: 20),
+                        _buildHeroBanner(context),
+                        const SizedBox(height: 18),
+                        _buildFeatureGrid(context),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -92,7 +95,7 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              'CampusLink',
+              'CampusApp',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -116,7 +119,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Alex',
+                    'Student',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -242,7 +245,7 @@ class HomeScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: Colors.white.withOpacity(0.35),
-                    width: 0.8,
+                    width: 0.95,
                   ),
                 ),
                 child: Row(
