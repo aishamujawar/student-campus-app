@@ -5,6 +5,7 @@ import 'screens/auth_login_screen.dart';
 import 'screens/auth_signup_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/otp_screen.dart';
+import 'screens/welcome_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/campus_assistant.dart';
 import 'screens/academic_hub.dart';
@@ -66,7 +67,8 @@ class CampusCompanionApp extends StatelessWidget {
         '/signup': (_) => const AuthSignupScreen(),
         '/home': (_) => const _MainShell(), // your main app with bottom nav
         '/forgot-password': (_) => const ForgotPasswordScreen(), 
-        '/otp': (_) => const OtpScreen(), 
+        '/otp': (_) => const OtpScreen(),
+        '/welcome': (_) => const WelcomeScreen(), 
       },
     );
   }
