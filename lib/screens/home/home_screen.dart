@@ -292,8 +292,7 @@ class HomeScreen extends StatelessWidget {
             Expanded(
               child: _HomeFeatureCard(
                 title: 'Smart Budgeting',
-                subtitle:
-                    'Expense tracking + analytics + auto categorization',
+                subtitle: 'Expense tracking + analytics + auto categorization',
                 icon: Icons.pie_chart_rounded,
                 startColor: const Color(0xFF4B6BFF),
                 endColor: const Color(0xFF61C2FF),
