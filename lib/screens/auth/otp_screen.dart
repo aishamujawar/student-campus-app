@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-class ForgotPasswordScreen extends StatefulWidget {
-  const ForgotPasswordScreen({super.key});
+import '../../controllers/otp_controller.dart';
+
+class OtpScreen extends StatefulWidget {
+  const OtpScreen({super.key});
 
   @override
-  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  State<OtpScreen> createState() => _OtpScreenState();
 }
 
-class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+class _OtpScreenState extends State<OtpScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  bool _useEmail = true;
-  String _contact = '';
+  // Bind GetX controller
+  final OtpController otpController = Get.put(OtpController());
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +35,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         child: SafeArea(
           child: Stack(
             children: [
-              // Back button (top-left)
               Positioned(
                 left: 8,
                 top: 8,
@@ -66,11 +68,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           children: [
                             _buildHeader(theme),
                             const SizedBox(height: 20),
-                            _buildMethodToggle(theme),
-                            const SizedBox(height: 12),
                             _buildForm(theme),
-                            const SizedBox(height: 18),
-                            _buildFooter(context, theme),
+                            const SizedBox(height: 16),
+                            _buildFooter(theme),
                           ],
                         ),
                       ),
@@ -84,6 +84,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       ),
     );
   }
+
+  // ---------------- HEADER ----------------
 
   Widget _buildHeader(ThemeData theme) {
     return Column(
@@ -107,14 +109,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               ),
               alignment: Alignment.center,
               child: const Icon(
-                Icons.lock_reset_rounded,
+                Icons.verified_user_rounded,
                 size: 18,
                 color: Colors.white,
               ),
             ),
             const SizedBox(width: 8),
             Text(
-              'Reset password',
+              'Verify OTP',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -123,14 +125,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
         const SizedBox(height: 18),
         Text(
-          'Forgot your password?',
+          'Enter the 6-digit code',
           style: theme.textTheme.headlineMedium?.copyWith(
             fontSize: 22,
           ),
         ),
         const SizedBox(height: 4),
         Text(
-          'Choose how you want to receive your OTP.',
+          'We\'ve sent a verification code to your registered email / phone.',
           style: theme.textTheme.bodyMedium?.copyWith(
             fontSize: 13,
             color: const Color(0xFF7A8A9C),
@@ -140,59 +142,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
-  Widget _buildMethodToggle(ThemeData theme) {
-    return Row(
-      children: [
-        Expanded(
-          child: ChoiceChip(
-            selected: _useEmail,
-            onSelected: (selected) {
-              if (!selected) return;
-              setState(() {
-                _useEmail = true;
-                _contact = '';
-              });
-            },
-            label: const Text('Email'),
-            labelStyle: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: _useEmail ? Colors.white : const Color(0xFF4C5D73),
-            ),
-            selectedColor: const Color(0xFF3AA8F7),
-            backgroundColor: const Color(0xFFF4F7FB),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: ChoiceChip(
-            selected: !_useEmail,
-            onSelected: (selected) {
-              if (!selected) return;
-              setState(() {
-                _useEmail = false;
-                _contact = '';
-              });
-            },
-            label: const Text('Phone number'),
-            labelStyle: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: !_useEmail ? Colors.white : const Color(0xFF4C5D73),
-            ),
-            selectedColor: const Color(0xFF47D6C4),
-            backgroundColor: const Color(0xFFF4F7FB),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  // ---------------- FORM ----------------
 
   Widget _buildForm(ThemeData theme) {
     return Form(
@@ -200,39 +150,87 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       child: Column(
         children: [
           const SizedBox(height: 10),
+
+          // OTP FIELD
           TextFormField(
-            decoration: _inputDecoration(
-              label: _useEmail ? 'Registered email' : 'Registered phone number',
-              icon: _useEmail ? Icons.email_rounded : Icons.phone_rounded,
-            ),
-            keyboardType:
-                _useEmail ? TextInputType.emailAddress : TextInputType.phone,
-            onChanged: (value) => _contact = value.trim(),
-          ),
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                elevation: 0,
-                backgroundColor: const Color(0xFF3AA8F7),
-                foregroundColor: Colors.white,
+            controller: otpController.otp,
+            maxLength: 6,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: 'OTP',
+              counterText: '',
+              prefixIcon: const Icon(
+                Icons.pin_rounded,
+                size: 20,
+                color: Color(0xFF7A8A9C),
               ),
-              onPressed: () {
-                // Later: validate + trigger backend
-                Navigator.pushNamed(context, '/otp');
-              },
-              child: const Text(
-                'Send OTP',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+              labelStyle: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF7A8A9C),
+              ),
+              filled: true,
+              fillColor: const Color(0xFFF4F7FB),
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            onChanged: (value) {
+              otpController.otp.text = value;
+            },
+          ),
+
+          const SizedBox(height: 18),
+
+          // VERIFY BUTTON
+          Obx(
+            () => SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  elevation: 0,
+                  backgroundColor: const Color(0xFF47D6C4),
+                  foregroundColor: Colors.white,
                 ),
+                onPressed: otpController.isLoading.value
+                    ? null
+                    : () async {
+                        final otp = otpController.otp.text.trim();
+
+                        final success =
+                            await otpController.verifyOtp(otp);
+
+                        if (success && mounted) {
+                          Navigator.pushReplacementNamed(
+                              context, '/home');
+                        }
+                      },
+                child: otpController.isLoading.value
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    : const Text(
+                        'Verify & Continue',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
           ),
@@ -241,13 +239,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
-  Widget _buildFooter(BuildContext context, ThemeData theme) {
+  // ---------------- FOOTER ----------------
+
+  Widget _buildFooter(ThemeData theme) {
     return Column(
       children: [
-        const Divider(height: 24, thickness: 0.7),
-        const SizedBox(height: 4),
+        const SizedBox(height: 10),
         Text(
-          'Remembered your password?',
+          'Didn\'t receive the code?',
           style: theme.textTheme.bodyMedium?.copyWith(
             fontSize: 12,
             color: const Color(0xFF7A8A9C),
@@ -255,10 +254,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
         TextButton(
           onPressed: () {
-            Navigator.pushReplacementNamed(context, '/login');
+            // TODO: trigger OTP resend in future
+            Get.snackbar('Resent', 'A new OTP will be sent shortly.');
           },
           child: const Text(
-            'Back to sign in',
+            'Resend OTP',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -267,27 +267,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  InputDecoration _inputDecoration({
-    required String label,
-    required IconData icon,
-  }) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon, size: 20, color: const Color(0xFF7A8A9C)),
-      labelStyle: const TextStyle(
-        fontSize: 13,
-        color: Color(0xFF7A8A9C),
-      ),
-      filled: true,
-      fillColor: const Color(0xFFF4F7FB),
-      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide.none,
-      ),
     );
   }
 }

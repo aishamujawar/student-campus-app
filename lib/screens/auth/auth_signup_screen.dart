@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
+import '../../controllers/signup_controller.dart';
 
 class AuthSignupScreen extends StatefulWidget {
   const AuthSignupScreen({super.key});
@@ -10,11 +13,8 @@ class AuthSignupScreen extends StatefulWidget {
 class _AuthSignupScreenState extends State<AuthSignupScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  String _name = '';
-  String _uid = '';
-  String _email = '';
-  String _phone = '';
-  String _password = '';
+  // GetX controller for signup
+  final SignUpController signUpController = Get.put(SignUpController());
 
   @override
   Widget build(BuildContext context) {
@@ -121,7 +121,7 @@ class _AuthSignupScreenState extends State<AuthSignupScreen> {
           'Set up your campus companion profile.',
           style: theme.textTheme.bodyMedium?.copyWith(
             fontSize: 13,
-            color: const Color(0xFF7A8A9C),
+            color: Color(0xFF7A8A9C),
           ),
         ),
       ],
@@ -134,72 +134,110 @@ class _AuthSignupScreenState extends State<AuthSignupScreen> {
       child: Column(
         children: [
           const SizedBox(height: 8),
+
+          // FULL NAME
           TextFormField(
+            controller: signUpController.fullName,
             decoration: _inputDecoration(
               label: 'Full name',
               icon: Icons.person_rounded,
             ),
-            onChanged: (value) => _name = value.trim(),
           ),
           const SizedBox(height: 12),
+
+          // UID (separate controller now)
           TextFormField(
+            controller: signUpController.uid,
             decoration: _inputDecoration(
               label: 'UID',
               icon: Icons.badge_rounded,
             ),
-            onChanged: (value) => _uid = value.trim(),
           ),
           const SizedBox(height: 12),
+
+          // EMAIL
           TextFormField(
+            controller: signUpController.email,
             decoration: _inputDecoration(
               label: 'Email',
               icon: Icons.email_rounded,
             ),
             keyboardType: TextInputType.emailAddress,
-            onChanged: (value) => _email = value.trim(),
           ),
           const SizedBox(height: 12),
+
+          // PHONE NUMBER
           TextFormField(
+            controller: signUpController.phoneNo,
             decoration: _inputDecoration(
               label: 'Phone number',
               icon: Icons.phone_rounded,
             ),
             keyboardType: TextInputType.phone,
-            onChanged: (value) => _phone = value.trim(),
           ),
           const SizedBox(height: 12),
+
+          // PASSWORD
           TextFormField(
+            controller: signUpController.password,
             obscureText: true,
             decoration: _inputDecoration(
               label: 'Password',
               icon: Icons.lock_rounded,
             ),
-            onChanged: (value) => _password = value.trim(),
           ),
+
           const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
+
+          // CREATE ACCOUNT BUTTON
+          Obx(
+            () => SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  elevation: 0,
+                  backgroundColor: const Color(0xFF47D6C4),
+                  foregroundColor: Colors.white,
                 ),
-                elevation: 0,
-                backgroundColor: const Color(0xFF47D6C4),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                // In future: validate & send to backend
-                Navigator.pushReplacementNamed(context, '/home');
-              },
-              child: const Text(
-                'Create account',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+                onPressed: signUpController.isLoading.value
+                    ? null
+                    : () async {
+                        final email = signUpController.email.text.trim();
+                        final password =
+                            signUpController.password.text.trim();
+
+                        await signUpController.registerUser(email, password);
+
+                        // For now: navigate after the call.
+                        // Later, your friend can change this to only navigate on success.
+                        if (!signUpController.isLoading.value && mounted) {
+                          Navigator.pushReplacementNamed(context, '/home');
+                        }
+                      },
+                child: signUpController.isLoading.value
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text(
+                        'Create account',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
           ),
@@ -217,7 +255,7 @@ class _AuthSignupScreenState extends State<AuthSignupScreen> {
           'Already have an account?',
           style: theme.textTheme.bodyMedium?.copyWith(
             fontSize: 12,
-            color: const Color(0xFF7A8A9C),
+            color: Color(0xFF7A8A9C),
           ),
         ),
         TextButton(
@@ -243,7 +281,11 @@ class _AuthSignupScreenState extends State<AuthSignupScreen> {
   }) {
     return InputDecoration(
       labelText: label,
-      prefixIcon: Icon(icon, size: 20, color: const Color(0xFF7A8A9C)),
+      prefixIcon: Icon(
+        icon,
+        size: 20,
+        color: const Color(0xFF7A8A9C),
+      ),
       labelStyle: const TextStyle(
         fontSize: 13,
         color: Color(0xFF7A8A9C),

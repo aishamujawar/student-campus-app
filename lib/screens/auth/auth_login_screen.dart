@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
+import '../../controllers/login_controller.dart';
 
 class AuthLoginScreen extends StatefulWidget {
   const AuthLoginScreen({super.key});
@@ -10,8 +13,8 @@ class AuthLoginScreen extends StatefulWidget {
 class _AuthLoginScreenState extends State<AuthLoginScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  String _emailOrUid = '';
-  String _password = '';
+  // GetX LoginController – this gives us email & password controllers and loginUser()
+  final LoginController loginController = Get.put(LoginController());
 
   @override
   Widget build(BuildContext context) {
@@ -132,14 +135,17 @@ class _AuthLoginScreenState extends State<AuthLoginScreen> {
         children: [
           const SizedBox(height: 8),
           TextFormField(
+            controller: loginController.email,
             decoration: _inputDecoration(
-              label: 'Email or UID',
+              label: 'Email',
               icon: Icons.alternate_email_rounded,
             ),
-            onChanged: (value) => _emailOrUid = value.trim(),
+            keyboardType: TextInputType.emailAddress,
+            // Optional: add validators later if needed
           ),
           const SizedBox(height: 12),
           TextFormField(
+            controller: loginController.password,
             obscureText: true,
             decoration: _inputDecoration(
               label: 'Password',
@@ -155,32 +161,52 @@ class _AuthLoginScreenState extends State<AuthLoginScreen> {
                 ),
               ),
             ),
-            onChanged: (value) => _password = value.trim(),
           ),
           const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
+          Obx(
+            () => SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  elevation: 0,
+                  backgroundColor: const Color(0xFF3AA8F7),
+                  foregroundColor: Colors.white,
                 ),
-                elevation: 0,
-                backgroundColor: const Color(0xFF3AA8F7),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                // In future: validate and auth; for now just go to main app
-                Navigator.pushReplacementNamed(context, '/home');
-              },
-              child: const Text(
-                'Sign In',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+                onPressed: loginController.isLoading.value
+                    ? null
+                    : () async {
+                        // Optional: add _formKey.currentState!.validate() later
+                        final success = await loginController.loginUser(
+                          loginController.email.text.trim(),
+                          loginController.password.text.trim(),
+                        );
+
+                        if (success && mounted) {
+                          Navigator.pushReplacementNamed(context, '/home');
+                        }
+                      },
+                child: loginController.isLoading.value
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text(
+                        'Sign In',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
           ),

@@ -14,11 +14,11 @@ class AcademicHubScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Center(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
           child: FractionallySizedBox(
-            widthFactor: 0.95, // 80% of screen width
+            widthFactor: 0.95, // 95% of screen width
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 430),
               child: Container(

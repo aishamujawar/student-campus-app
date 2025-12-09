@@ -1,17 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-import 'screens/splash_screen.dart';
-import 'screens/auth_login_screen.dart';
-import 'screens/auth_signup_screen.dart';
-import 'screens/forgot_password_screen.dart';
-import 'screens/otp_screen.dart';
-import 'screens/welcome_screen.dart';
-import 'screens/home_screen.dart';
-import 'screens/campus_assistant.dart';
-import 'screens/academic_hub.dart';
-import 'screens/smart_budgeting.dart';
-import 'screens/campuspay_scanner.dart';
-import 'screens/profile_page.dart';
+// import 'firebase_options.dart'; // only if you use flutterfire CLI
+import 'controllers/signup_controller.dart';
+import 'controllers/login_controller.dart';
+import 'controllers/forgot_password_controller.dart';
+import 'controllers/otp_controller.dart';
+
+import 'screens/auth/welcome_screen.dart';
+import 'screens/auth/splash_screen.dart';
+import 'screens/auth/auth_login_screen.dart';
+import 'screens/auth/auth_signup_screen.dart';
+import 'screens/auth/forgot_password_screen.dart';
+import 'screens/auth/otp_screen.dart';
+
+import 'screens/home/home_screen.dart';
+import 'screens/home/profile_page.dart';
+
+import 'screens/assistant/campus_assistant.dart';
+import 'screens/academic_hub/academic_hub_screen.dart';
+import 'screens/budgeting/smart_budgeting.dart';
+import 'screens/payments/campuspay_scanner.dart';
 
 void main() {
   runApp(const CampusCompanionApp());

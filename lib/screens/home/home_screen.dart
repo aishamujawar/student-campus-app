@@ -25,9 +25,9 @@ class HomeScreen extends StatelessWidget {
     return SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Center(
+          return Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
               child: FractionallySizedBox(
                 widthFactor: 0.95, // 95% of screen width
                 child: ConstrainedBox(
