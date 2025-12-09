@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
+import '../../controllers/otp_controller.dart';
 
 class OtpScreen extends StatefulWidget {
   const OtpScreen({super.key});
@@ -9,7 +12,9 @@ class OtpScreen extends StatefulWidget {
 
 class _OtpScreenState extends State<OtpScreen> {
   final _formKey = GlobalKey<FormState>();
-  String _otp = '';
+
+  // Bind GetX controller
+  final OtpController otpController = Get.put(OtpController());
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +70,7 @@ class _OtpScreenState extends State<OtpScreen> {
                             const SizedBox(height: 20),
                             _buildForm(theme),
                             const SizedBox(height: 16),
-                            _buildFooter(context, theme),
+                            _buildFooter(theme),
                           ],
                         ),
                       ),
@@ -79,6 +84,8 @@ class _OtpScreenState extends State<OtpScreen> {
       ),
     );
   }
+
+  // ---------------- HEADER ----------------
 
   Widget _buildHeader(ThemeData theme) {
     return Column(
@@ -135,13 +142,18 @@ class _OtpScreenState extends State<OtpScreen> {
     );
   }
 
+  // ---------------- FORM ----------------
+
   Widget _buildForm(ThemeData theme) {
     return Form(
       key: _formKey,
       child: Column(
         children: [
           const SizedBox(height: 10),
+
+          // OTP FIELD
           TextFormField(
+            controller: otpController.otp,
             maxLength: 6,
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
@@ -164,33 +176,61 @@ class _OtpScreenState extends State<OtpScreen> {
                 borderSide: BorderSide.none,
               ),
             ),
-            onChanged: (value) => _otp = value.trim(),
+            onChanged: (value) {
+              otpController.otp.text = value;
+            },
           ),
+
           const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
+
+          // VERIFY BUTTON
+          Obx(
+            () => SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  elevation: 0,
+                  backgroundColor: const Color(0xFF47D6C4),
+                  foregroundColor: Colors.white,
                 ),
-                elevation: 0,
-                backgroundColor: const Color(0xFF47D6C4),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                // In future: validate against backend
-                // For now, just go back to login or home as needed:
-                Navigator.pushReplacementNamed(context, '/login');
-              },
-              child: const Text(
-                'Verify & Continue',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+                onPressed: otpController.isLoading.value
+                    ? null
+                    : () async {
+                        final otp = otpController.otp.text.trim();
+
+                        final success =
+                            await otpController.verifyOtp(otp);
+
+                        if (success && mounted) {
+                          Navigator.pushReplacementNamed(
+                              context, '/home');
+                        }
+                      },
+                child: otpController.isLoading.value
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    : const Text(
+                        'Verify & Continue',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
           ),
@@ -199,7 +239,9 @@ class _OtpScreenState extends State<OtpScreen> {
     );
   }
 
-  Widget _buildFooter(BuildContext context, ThemeData theme) {
+  // ---------------- FOOTER ----------------
+
+  Widget _buildFooter(ThemeData theme) {
     return Column(
       children: [
         const SizedBox(height: 10),
@@ -212,7 +254,8 @@ class _OtpScreenState extends State<OtpScreen> {
         ),
         TextButton(
           onPressed: () {
-            // Later: trigger resend OTP
+            // TODO: trigger OTP resend in future
+            Get.snackbar('Resent', 'A new OTP will be sent shortly.');
           },
           child: const Text(
             'Resend OTP',

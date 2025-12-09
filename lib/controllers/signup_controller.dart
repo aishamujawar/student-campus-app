@@ -7,6 +7,7 @@ class SignUpController extends GetxController {
 
   // TextField controllers
   final fullName = TextEditingController();
+  final uid = TextEditingController();      // 🔹 NEW: college UID
   final email = TextEditingController();
   final phoneNo = TextEditingController();
   final password = TextEditingController();
@@ -17,7 +18,7 @@ class SignUpController extends GetxController {
 
   /// Call this from your UI "Create account" button.
   /// Example:
-  /// SignUpController.instance.registerUser(
+  /// await SignUpController.instance.registerUser(
   ///   SignUpController.instance.email.text.trim(),
   ///   SignUpController.instance.password.text.trim(),
   /// );
@@ -30,18 +31,18 @@ class SignUpController extends GetxController {
         password: password,
       );
 
-      // TODO: Optionally save fullName, phoneNo, etc. to Firestore here.
+      // TODO: Optionally save fullName, uid, phoneNo, etc. to Firestore here.
       // Example (later):
       // await FirebaseFirestore.instance
       //   .collection('users')
       //   .doc(userCredential.user!.uid)
       //   .set({
       //     'fullName': fullName.text.trim(),
+      //     'uid': uid.text.trim(),
       //     'phoneNo': phoneNo.text.trim(),
       //     'email': email,
       //   });
 
-      // You can show a success snackbar or let UI navigate to /home.
       Get.snackbar(
         'Success',
         'Account created successfully.',
@@ -67,6 +68,7 @@ class SignUpController extends GetxController {
   @override
   void onClose() {
     fullName.dispose();
+    uid.dispose();
     email.dispose();
     phoneNo.dispose();
     password.dispose();

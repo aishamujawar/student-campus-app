@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
+import '../../controllers/forgot_password_controller.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -12,6 +15,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   bool _useEmail = true;
   String _contact = '';
+
+  // GetX controller
+  final ForgotPasswordController forgotPasswordController =
+      Get.put(ForgotPasswordController());
 
   @override
   Widget build(BuildContext context) {
@@ -85,6 +92,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
+  // ---------------- HEADER ----------------
+
   Widget _buildHeader(ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,6 +149,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
+  // ---------------- METHOD TOGGLE (Email / Phone) ----------------
+
   Widget _buildMethodToggle(ThemeData theme) {
     return Row(
       children: [
@@ -151,6 +162,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               setState(() {
                 _useEmail = true;
                 _contact = '';
+                forgotPasswordController.email.clear();
               });
             },
             label: const Text('Email'),
@@ -175,6 +187,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               setState(() {
                 _useEmail = false;
                 _contact = '';
+                forgotPasswordController.email.clear();
               });
             },
             label: const Text('Phone number'),
@@ -194,6 +207,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
+  // ---------------- FORM ----------------
+
   Widget _buildForm(ThemeData theme) {
     return Form(
       key: _formKey,
@@ -201,8 +216,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         children: [
           const SizedBox(height: 10),
           TextFormField(
+            controller: _useEmail ? forgotPasswordController.email : null,
             decoration: _inputDecoration(
-              label: _useEmail ? 'Registered email' : 'Registered phone number',
+              label:
+                  _useEmail ? 'Registered email' : 'Registered phone number',
               icon: _useEmail ? Icons.email_rounded : Icons.phone_rounded,
             ),
             keyboardType:
@@ -210,29 +227,77 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             onChanged: (value) => _contact = value.trim(),
           ),
           const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
+          Obx(
+            () => SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  elevation: 0,
+                  backgroundColor: const Color(0xFF3AA8F7),
+                  foregroundColor: Colors.white,
                 ),
-                elevation: 0,
-                backgroundColor: const Color(0xFF3AA8F7),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                // Later: validate + trigger backend
-                Navigator.pushNamed(context, '/otp');
-              },
-              child: const Text(
-                'Send OTP',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+                onPressed: forgotPasswordController.isLoading.value
+                    ? null
+                    : () async {
+                        if (_useEmail) {
+                          final email =
+                              forgotPasswordController.email.text.trim();
+                          if (email.isEmpty) {
+                            Get.snackbar(
+                              'Missing email',
+                              'Please enter your registered email.',
+                              snackPosition: SnackPosition.BOTTOM,
+                            );
+                            return;
+                          }
+
+                          await forgotPasswordController
+                              .resetPassword(email);
+
+                          // After sending reset email, you *could* still go to OTP
+                          // if you simulate an OTP flow, or simply stay.
+                          // For now, go to OTP screen to keep the flow consistent:
+                          if (mounted) {
+                            Navigator.pushNamed(context, '/otp');
+                          }
+                        } else {
+                          // TODO: Implement phone-based reset with OTP if needed.
+                          // For now, just go to OTP screen so the flow works.
+                          if (_contact.isEmpty) {
+                            Get.snackbar(
+                              'Missing phone number',
+                              'Please enter your registered phone number.',
+                              snackPosition: SnackPosition.BOTTOM,
+                            );
+                            return;
+                          }
+                          Navigator.pushNamed(context, '/otp');
+                        }
+                      },
+                child: forgotPasswordController.isLoading.value
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text(
+                        'Send OTP',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
           ),
@@ -240,6 +305,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       ),
     );
   }
+
+  // ---------------- FOOTER ----------------
 
   Widget _buildFooter(BuildContext context, ThemeData theme) {
     return Column(
@@ -269,6 +336,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       ],
     );
   }
+
+  // ---------------- INPUT DECORATION ----------------
 
   InputDecoration _inputDecoration({
     required String label,
