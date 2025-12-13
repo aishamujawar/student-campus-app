@@ -1,3 +1,4 @@
+import 'package:campus_app/repository/authentication_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,7 +8,7 @@ class SignUpController extends GetxController {
 
   // TextField controllers
   final fullName = TextEditingController();
-  final uid = TextEditingController();      // 🔹 NEW: college UID
+  final uid = TextEditingController();
   final email = TextEditingController();
   final phoneNo = TextEditingController();
   final password = TextEditingController();
@@ -16,12 +17,21 @@ class SignUpController extends GetxController {
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  /// Call this from your UI "Create account" button.
-  /// Example:
-  /// await SignUpController.instance.registerUser(
-  ///   SignUpController.instance.email.text.trim(),
-  ///   SignUpController.instance.password.text.trim(),
-  /// );
+  // -------------------------------------------
+  // PHONE AUTHENTICATION TRIGGER (IMPORTANT)
+  // -------------------------------------------
+  void triggerPhoneAuth() {
+    final phone = phoneNo.text.trim();
+    if (phone.isEmpty) {
+      Get.snackbar("Error", "Phone number cannot be empty.");
+      return;
+    }
+    AuthRepository.instance.phoneAuthentication(phone);
+  }
+
+  // -------------------------------------------
+  // EMAIL + PASSWORD SIGN-UP
+  // -------------------------------------------
   Future<void> registerUser(String email, String password) async {
     try {
       isLoading.value = true;
@@ -31,21 +41,12 @@ class SignUpController extends GetxController {
         password: password,
       );
 
-      // TODO: Optionally save fullName, uid, phoneNo, etc. to Firestore here.
-      // Example (later):
-      // await FirebaseFirestore.instance
-      //   .collection('users')
-      //   .doc(userCredential.user!.uid)
-      //   .set({
-      //     'fullName': fullName.text.trim(),
-      //     'uid': uid.text.trim(),
-      //     'phoneNo': phoneNo.text.trim(),
-      //     'email': email,
-      //   });
+      // 🔥 START PHONE OTP AFTER EMAIL SIGNUP
+      triggerPhoneAuth();
 
       Get.snackbar(
         'Success',
-        'Account created successfully.',
+        'Account created successfully. Verification code sent to phone.',
         snackPosition: SnackPosition.BOTTOM,
       );
     } on FirebaseAuthException catch (e) {
