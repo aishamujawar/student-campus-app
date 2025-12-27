@@ -145,16 +145,6 @@ class _AuthSignupScreenState extends State<AuthSignupScreen> {
           ),
           const SizedBox(height: 12),
 
-          // UID (separate controller now)
-          TextFormField(
-            controller: signUpController.uid,
-            decoration: _inputDecoration(
-              label: 'UID',
-              icon: Icons.badge_rounded,
-            ),
-          ),
-          const SizedBox(height: 12),
-
           // EMAIL
           TextFormField(
             controller: signUpController.email,
@@ -210,8 +200,7 @@ class _AuthSignupScreenState extends State<AuthSignupScreen> {
                     ? null
                     : () async {
                         final email = signUpController.email.text.trim();
-                        final password =
-                            signUpController.password.text.trim();
+                        final password = signUpController.password.text.trim();
 
                         await signUpController.registerUser(email, password);
 

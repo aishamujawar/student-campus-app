@@ -8,58 +8,30 @@ class OtpController extends GetxController {
   final otp = TextEditingController();
   final isLoading = false.obs;
 
+  late String verificationId;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  /// For phone auth, you usually get this from Firebase when you request OTP.
-  /// Your friend can set this value when starting the verification process.
-  String? verificationId;
-
-  /// Call this from your OTP "Verify & Continue" button.
-  ///
-  /// Example:
-  /// OtpController.instance.verifyOtp(
-  ///   OtpController.instance.otp.text.trim(),
-  /// );
-  Future<bool> verifyOtp(String code) async {
-    if (verificationId == null) {
-      Get.snackbar(
-        'Error',
-        'No verification ID found. Please request a new OTP.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return false;
+  /// ✅ VERIFY OTP
+  Future<void> verifyOtp() async {
+    if (otp.text.trim().length != 6) {
+      Get.snackbar('Error', 'Enter valid 6-digit OTP');
+      return;
     }
 
     try {
       isLoading.value = true;
 
       final credential = PhoneAuthProvider.credential(
-        verificationId: verificationId!,
-        smsCode: code,
+        verificationId: verificationId,
+        smsCode: otp.text.trim(),
       );
 
       await _auth.signInWithCredential(credential);
 
-      Get.snackbar(
-        'Verified',
-        'OTP verified successfully.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return true;
-    } on FirebaseAuthException catch (e) {
-      Get.snackbar(
-        'Verification failed',
-        e.message ?? 'Invalid OTP.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return false;
+      // ✅ SUCCESS
+      Get.offAllNamed('/home');
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Unexpected error occurred.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return false;
+      Get.snackbar('Error', 'Invalid OTP');
     } finally {
       isLoading.value = false;
     }

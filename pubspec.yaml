@@ -1,4 +1,4 @@
-name: campus_app
+name: student_campus_app
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -30,9 +30,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-    
+
+  # Firebase core (must be 4.x)
   firebase_core: ^4.2.1
+
+  # Auth & Firestore (compatible with core 4.x)
   firebase_auth: ^6.1.2
+  cloud_firestore: ^6.1.0
+
+  # State management
   get: ^4.6.6
 
   # The following adds the Cupertino Icons font to your application.

@@ -1,94 +1,57 @@
-import 'package:campus_app/firebase_options.dart';
-import 'package:campus_app/screens/auth/splash_screen.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:get/get.dart';
 
-import 'screens/academic_hub/academic_hub_screen.dart';
+import 'firebase_options.dart';
+
+// Repositories & Controllers
+import 'repository/authentication_repository.dart';
+import 'controllers/otp_controller.dart';
+
+// Auth & Splash
+import 'screens/auth/splash_screen.dart';
 import 'screens/auth/auth_login_screen.dart';
 import 'screens/auth/auth_signup_screen.dart';
 import 'screens/auth/forgot_password_screen.dart';
 import 'screens/auth/otp_screen.dart';
 import 'screens/auth/welcome_screen.dart';
+
+// Core Screens
 import 'screens/home/home_screen.dart';
 import 'screens/assistant/campus_assistant.dart';
+import 'screens/academic_hub/academic_hub_screen.dart';
 import 'screens/budgeting/smart_budgeting.dart';
 import 'screens/payments/campuspay_scanner.dart';
 import 'screens/home/profile_page.dart';
 
-void main() {
+/// ---------------------------------------------------------------------------
+/// MAIN
+/// ---------------------------------------------------------------------------
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  /// ✅ Inject dependencies ONCE
+  Get.put(AuthRepository());
+  Get.put(OtpController());
+
   runApp(const CampusCompanionApp());
 }
 
-class CampusCompanionApp extends StatelessWidget {
-  const CampusCompanionApp({super.key});
+/// ---------------------------------------------------------------------------
+/// MAIN SHELL (BOTTOM NAV)  ✅ MUST BE ABOVE APP WIDGET
+/// ---------------------------------------------------------------------------
+class MainShell extends StatefulWidget {
+  const MainShell({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final Color primary = const Color(0xFF3AA8F7);
-    final Color secondary = const Color(0xFF47D6C4);
-
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Campus Companion',
-      theme: ThemeData(
-        useMaterial3: false,
-        primaryColor: primary,
-        scaffoldBackgroundColor: const Color(0xFFE7F2FF),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: primary,
-          primary: primary,
-          secondary: secondary,
-          brightness: Brightness.light,
-        ),
-        textTheme: const TextTheme(
-          headlineMedium: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF16222C),
-          ),
-          titleLarge: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF16222C),
-          ),
-          titleMedium: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF16222C),
-          ),
-          bodyMedium: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            color: Color(0xFF5A6A7A),
-          ),
-        ),
-      ),
-      home: SplashScreen(),
-      routes: {
-        '/login': (_) => const AuthLoginScreen(),
-        '/signup': (_) => const AuthSignupScreen(),
-        '/home': (_) => const _MainShell(), // your main app with bottom nav
-        '/forgot-password': (_) => const ForgotPasswordScreen(),
-        '/otp': (_) => const OtpScreen(),
-        '/welcome': (_) => const WelcomeScreen(),
-      },
-    );
-  }
+  State<MainShell> createState() => _MainShellState();
 }
 
-/// Main shell with persistent bottom navigation bar.
-/// All top-level pages (Home, Chatbot, Academic Hub, Budgeting,
-/// CampusPay, Profile) live here.
-class _MainShell extends StatefulWidget {
-  const _MainShell();
-
-  @override
-  State<_MainShell> createState() => _MainShellState();
-}
-
-class _MainShellState extends State<_MainShell> {
+class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
 
   late final List<Widget> _pages;
@@ -101,127 +64,100 @@ class _MainShellState extends State<_MainShell> {
         onFeatureSelected: _handleHomeFeatureTap,
         onProfileTap: () => _onItemTapped(5),
       ),
-      const CampusAssistantScreen(),
-      const AcademicHubScreen(),
-      const SmartBudgetingScreen(),
-      const CampusPayScannerScreen(),
+      CampusAssistantScreen(),
+      AcademicHubScreen(),
+      SmartBudgetingScreen(),
+      CampusPayScannerScreen(),
       const ProfilePage(),
     ];
   }
 
   void _onItemTapped(int index) {
-    if (!mounted) return;
-    setState(() {
-      _selectedIndex = index;
-    });
+    setState(() => _selectedIndex = index);
   }
 
-  /// Mapping from home feature cards to bottom-nav destinations.
   void _handleHomeFeatureTap(HomeFeature feature) {
     switch (feature) {
       case HomeFeature.campusAssistant:
-        _onItemTapped(1); // Chatbot / Campus Assistant
-        break;
-      case HomeFeature.smartBudgeting:
-        _onItemTapped(3); // Budgeting
+        _onItemTapped(1);
         break;
       case HomeFeature.academicHub:
-        _onItemTapped(2); // Academic Hub
+        _onItemTapped(2);
+        break;
+      case HomeFeature.smartBudgeting:
+        _onItemTapped(3);
         break;
       case HomeFeature.campusPayScanner:
-        _onItemTapped(4); // CampusPay
+        _onItemTapped(4);
         break;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final selectedColor = theme.colorScheme.primary;
-    final unselectedColor = const Color(0xFF9AA6B5);
+    final selectedColor = Theme.of(context).colorScheme.primary;
+    const unselectedColor = Color(0xFF9AA6B5);
 
     return Scaffold(
-      extendBody: true,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color(0xFFE7F2FF),
-              Color(0xFFD8F7F8),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: IndexedStack(
-          index: _selectedIndex,
-          children: _pages,
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _pages,
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        selectedItemColor: selectedColor,
+        unselectedItemColor: unselectedColor,
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Chatbot'),
+          BottomNavigationBarItem(icon: Icon(Icons.school), label: 'Academic'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.account_balance_wallet), label: 'Budget'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.qr_code_scanner), label: 'Pay'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+        ],
+      ),
+    );
+  }
+}
+
+/// ---------------------------------------------------------------------------
+/// APP ROOT
+/// ---------------------------------------------------------------------------
+class CampusCompanionApp extends StatelessWidget {
+  const CampusCompanionApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    const Color primary = Color(0xFF3AA8F7);
+    const Color secondary = Color(0xFF47D6C4);
+
+    return GetMaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Campus Companion',
+      theme: ThemeData(
+        useMaterial3: false,
+        primaryColor: primary,
+        scaffoldBackgroundColor: const Color(0xFFE7F2FF),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: primary,
+          primary: primary,
+          secondary: secondary,
+          brightness: Brightness.light,
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.96),
-            borderRadius: BorderRadius.circular(32),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(32),
-            child: BottomNavigationBar(
-              type: BottomNavigationBarType.fixed,
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              currentIndex: _selectedIndex,
-              onTap: _onItemTapped,
-              selectedItemColor: selectedColor,
-              unselectedItemColor: unselectedColor,
-              showUnselectedLabels: true,
-              selectedLabelStyle: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-              unselectedLabelStyle: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.home_rounded),
-                  label: 'Home',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.chat_bubble_rounded),
-                  label: 'Chatbot',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.school_rounded),
-                  label: 'Academic',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.account_balance_wallet_rounded),
-                  label: 'Budgeting',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.qr_code_scanner_rounded),
-                  label: 'CampusPay',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.person_rounded),
-                  label: 'Profile',
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      home: const SplashScreen(),
+      routes: {
+        '/login': (_) => const AuthLoginScreen(),
+        '/signup': (_) => const AuthSignupScreen(),
+        '/forgot-password': (_) => const ForgotPasswordScreen(),
+        '/otp': (_) => const OtpScreen(),
+        '/welcome': (_) => const WelcomeScreen(),
+        '/home': (_) => const MainShell(),
+      },
     );
   }
 }
