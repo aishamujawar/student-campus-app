@@ -8,17 +8,16 @@ class GroupController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  /// Groups user belongs to
+  // ───────────────────────── GROUP LIST ─────────────────────────
   final RxList<Map<String, dynamic>> groups = <Map<String, dynamic>>[].obs;
 
-  /// Members selected while creating a group
+  // ───────────────────────── CREATE GROUP STATE ─────────────────────────
   final RxList<Map<String, dynamic>> selectedMembers =
       <Map<String, dynamic>>[].obs;
 
   StreamSubscription<QuerySnapshot>? _groupSubscription;
 
   // ───────────────────────── INIT ─────────────────────────
-
   @override
   void onInit() {
     super.onInit();
@@ -35,7 +34,6 @@ class GroupController extends GetxController {
   }
 
   // ───────────────────────── GROUP LISTENER ─────────────────────────
-
   void _listenToGroups(String uid) {
     _groupSubscription = _firestore
         .collection('groups')
@@ -50,58 +48,35 @@ class GroupController extends GetxController {
           };
         }).toList();
       },
-      onError: (e) {
-        debugPrint('Fetch groups error: $e');
-      },
     );
   }
 
   // ───────────────────────── USER LOOKUP ─────────────────────────
+  Future<Map<String, dynamic>?> _fetchUserByEmail(String email) async {
+    final query = await _firestore
+        .collection('users')
+        .where('email', isEqualTo: email.trim())
+        .limit(1)
+        .get();
 
-  Future<Map<String, dynamic>?> fetchUserByEmail(String email) async {
-    try {
-      final query = await _firestore
-          .collection('users')
-          .where('email', isEqualTo: email.trim())
-          .limit(1)
-          .get();
+    if (query.docs.isEmpty) return null;
 
-      if (query.docs.isEmpty) return null;
-
-      final doc = query.docs.first;
-
-      return {
-        'uid': doc.id,
-        ...doc.data(),
-      };
-    } catch (e) {
-      debugPrint('Fetch user by email error: $e');
-      return null;
-    }
+    return {
+      'uid': query.docs.first.id,
+      ...query.docs.first.data(),
+    };
   }
 
-  // ───────────────────────── MEMBER MANAGEMENT ─────────────────────────
+  // ───────────────────────── CREATE GROUP FLOW ─────────────────────────
 
   Future<void> addMemberByEmail(String email) async {
-    if (email.trim().isEmpty) return;
-
-    final currentUser = _auth.currentUser;
-    if (currentUser == null) return;
-
-    final user = await fetchUserByEmail(email);
+    final user = await _fetchUserByEmail(email);
 
     if (user == null) {
       Get.snackbar('Error', 'User not found');
       return;
     }
 
-    /// Prevent adding yourself
-    if (user['uid'] == currentUser.uid) {
-      Get.snackbar('Info', 'You are already part of the group');
-      return;
-    }
-
-    /// Prevent duplicates
     final alreadyAdded = selectedMembers.any((m) => m['uid'] == user['uid']);
 
     if (alreadyAdded) {
@@ -116,51 +91,82 @@ class GroupController extends GetxController {
     selectedMembers.removeWhere((m) => m['uid'] == uid);
   }
 
-  void clearSelectedMembers() {
+  Future<void> createGroup(String name) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    final memberIds = {
+      user.uid,
+      ...selectedMembers.map((m) => m['uid'] as String),
+    }.toList();
+
+    if (memberIds.length < 2) {
+      Get.snackbar('Error', 'Add at least one member');
+      return;
+    }
+
+    await _firestore.collection('groups').add({
+      'name': name.trim(),
+      'members': memberIds,
+      'memberCount': memberIds.length,
+      'createdBy': user.uid,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
     selectedMembers.clear();
   }
 
-  // ───────────────────────── CREATE GROUP ─────────────────────────
+  // ───────────────────────── LIVE GROUP MANAGEMENT ─────────────────────────
 
-  Future<void> createGroup(String name) async {
-    try {
-      final user = _auth.currentUser;
-      if (user == null) throw Exception('User not logged in');
+  Future<void> addMemberToGroup(String groupId, String email) async {
+    final user = await _fetchUserByEmail(email);
+    if (user == null) return;
 
-      if (name.trim().isEmpty) {
-        Get.snackbar('Error', 'Group name cannot be empty');
-        return;
-      }
+    final ref = _firestore.collection('groups').doc(groupId);
+    final snap = await ref.get();
 
-      final memberIds = {
-        user.uid,
-        ...selectedMembers.map((m) => m['uid'] as String),
-      }.toList();
+    final List members = List.from(snap['members']);
 
-      /// Require at least 2 members
-      if (memberIds.length < 2) {
-        Get.snackbar('Error', 'Add at least one member');
-        return;
-      }
+    if (members.contains(user['uid'])) return;
 
-      await _firestore.collection('groups').add({
-        'name': name.trim(),
-        'members': memberIds,
-        'memberCount': memberIds.length,
-        'createdBy': user.uid,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+    members.add(user['uid']);
 
-      clearSelectedMembers();
-    } catch (e) {
-      debugPrint('Create group error: $e');
-      Get.snackbar('Error', 'Failed to create group');
-      rethrow;
+    await ref.update({
+      'members': members,
+      'memberCount': members.length,
+    });
+  }
+
+  Future<void> removeMemberFromGroup(String groupId, String memberId) async {
+    final ref = _firestore.collection('groups').doc(groupId);
+    final snap = await ref.get();
+
+    final List members = List.from(snap['members']);
+    members.remove(memberId);
+
+    if (members.length < 2) {
+      Get.snackbar('Error', 'Group must have at least 2 members');
+      return;
     }
+
+    await ref.update({
+      'members': members,
+      'memberCount': members.length,
+    });
+  }
+
+  Future<void> deleteGroup(String groupId) async {
+    final ref = _firestore.collection('groups').doc(groupId);
+
+    final expenses = await ref.collection('expenses').get();
+    for (var doc in expenses.docs) {
+      await doc.reference.delete();
+    }
+
+    await ref.delete();
   }
 
   // ───────────────────────── CLEANUP ─────────────────────────
-
   @override
   void onClose() {
     _groupSubscription?.cancel();
