@@ -95,12 +95,13 @@ class GroupController extends GetxController {
       return;
     }
 
-    // ❌ Prevent adding yourself
+    /// Prevent adding yourself
     if (user['uid'] == currentUser.uid) {
       Get.snackbar('Info', 'You are already part of the group');
       return;
     }
 
+    /// Prevent duplicates
     final alreadyAdded = selectedMembers.any((m) => m['uid'] == user['uid']);
 
     if (alreadyAdded) {
@@ -124,13 +125,11 @@ class GroupController extends GetxController {
   Future<void> createGroup(String name) async {
     try {
       final user = _auth.currentUser;
-
-      if (user == null) {
-        throw Exception('User not logged in');
-      }
+      if (user == null) throw Exception('User not logged in');
 
       if (name.trim().isEmpty) {
-        throw Exception('Group name cannot be empty');
+        Get.snackbar('Error', 'Group name cannot be empty');
+        return;
       }
 
       final memberIds = {
@@ -138,9 +137,16 @@ class GroupController extends GetxController {
         ...selectedMembers.map((m) => m['uid'] as String),
       }.toList();
 
+      /// Require at least 2 members
+      if (memberIds.length < 2) {
+        Get.snackbar('Error', 'Add at least one member');
+        return;
+      }
+
       await _firestore.collection('groups').add({
         'name': name.trim(),
         'members': memberIds,
+        'memberCount': memberIds.length,
         'createdBy': user.uid,
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -148,7 +154,7 @@ class GroupController extends GetxController {
       clearSelectedMembers();
     } catch (e) {
       debugPrint('Create group error: $e');
-      Get.snackbar('Error', 'Something went wrong while creating group');
+      Get.snackbar('Error', 'Failed to create group');
       rethrow;
     }
   }

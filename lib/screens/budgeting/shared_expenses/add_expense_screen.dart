@@ -1,85 +1,89 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 
-class AddExpenseScreen extends StatelessWidget {
+import 'controllers/expense_controller.dart';
+
+class AddExpenseScreen extends StatefulWidget {
   final String groupId;
 
-  const AddExpenseScreen({
-    super.key,
-    required this.groupId,
-  });
+  const AddExpenseScreen({super.key, required this.groupId});
+
+  @override
+  State<AddExpenseScreen> createState() => _AddExpenseScreenState();
+}
+
+class _AddExpenseScreenState extends State<AddExpenseScreen> {
+  final titleController = TextEditingController();
+  final amountController = TextEditingController();
+
+  final ExpenseController expenseController = Get.find<ExpenseController>();
+
+  bool isLoading = false;
 
   @override
   Widget build(BuildContext context) {
-    final TextEditingController titleController = TextEditingController();
-    final TextEditingController amountController = TextEditingController();
-
-    final String currentUserId = FirebaseAuth.instance.currentUser!.uid;
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add Expense'),
-      ),
+      appBar: AppBar(title: const Text('Add Expense')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            /// Expense title
             TextField(
               controller: titleController,
-              decoration: const InputDecoration(
-                labelText: 'Expense Title',
-              ),
+              decoration: const InputDecoration(labelText: 'Expense title'),
             ),
             const SizedBox(height: 12),
-
-            /// Amount
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Amount',
-              ),
+              decoration: const InputDecoration(labelText: 'Amount'),
             ),
-
-            const Spacer(),
-
-            /// Save button
+            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () async {
-                  if (titleController.text.isEmpty ||
-                      amountController.text.isEmpty) {
-                    Get.snackbar(
-                      'Error',
-                      'Please fill all fields',
-                      snackPosition: SnackPosition.BOTTOM,
-                    );
-                    return;
-                  }
-
-                  await FirebaseFirestore.instance
-                      .collection('groups')
-                      .doc(groupId)
-                      .collection('expenses')
-                      .add({
-                    'title': titleController.text,
-                    'amount': double.parse(amountController.text),
-                    'paidBy': currentUserId,
-                    'createdAt': Timestamp.now(),
-                  });
-
-                  Get.back(); // go back to GroupDetailScreen
-                },
-                child: const Text('Add Expense'),
+                onPressed: isLoading ? null : _submit,
+                child: isLoading
+                    ? const CircularProgressIndicator()
+                    : const Text('Add Expense'),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _submit() async {
+    final title = titleController.text.trim();
+    final rawAmount = amountController.text.trim();
+
+    if (title.isEmpty || rawAmount.isEmpty) {
+      Get.snackbar('Error', 'Please fill all fields');
+      return;
+    }
+
+    final amount = double.tryParse(rawAmount);
+
+    if (amount == null) {
+      Get.snackbar('Error', 'Invalid amount');
+      return;
+    }
+
+    try {
+      setState(() => isLoading = true);
+
+      await expenseController.addExpense(
+        groupId: widget.groupId,
+        title: title,
+        amount: amount,
+      );
+
+      Get.back(); // success
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to add expense');
+    } finally {
+      setState(() => isLoading = false);
+    }
   }
 }
