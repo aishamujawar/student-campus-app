@@ -2,84 +2,56 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'package:student_campus_app/repository/authentication_repository.dart';
-import 'package:student_campus_app/repository/user_repository.dart';
-import 'package:student_campus_app/models/user_model.dart';
-
 class SignUpController extends GetxController {
-  static SignUpController get instance => Get.find<SignUpController>();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // -----------------------------
-  // TEXT CONTROLLERS
-  // -----------------------------
   final fullName = TextEditingController();
   final email = TextEditingController();
-  final phoneNo = TextEditingController();
   final password = TextEditingController();
 
   final isLoading = false.obs;
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  // -----------------------------
-  // PHONE AUTH TRIGGER
-  // -----------------------------
-  void triggerPhoneAuth() {
-    final phone = phoneNo.text.trim();
-
-    if (phone.isEmpty) {
-      Get.snackbar("Error", "Phone number cannot be empty");
-      return;
-    }
-
-    AuthRepository.instance.phoneAuthentication(phone);
-  }
-
-  // -----------------------------
-  // EMAIL + PASSWORD SIGNUP
-  // -----------------------------
-  Future<void> registerUser(String email, String password) async {
+  /// 🔐 SIGN UP + SEND EMAIL VERIFICATION
+  Future<void> signUp() async {
     try {
       isLoading.value = true;
 
-      // 🔐 Create Firebase Auth user
-      final UserCredential userCredential =
+      // 1️⃣ Create user
+      UserCredential userCredential =
           await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
+        email: email.text.trim(),
+        password: password.text.trim(),
       );
 
-      final uid = userCredential.user!.uid;
+      final user = userCredential.user;
 
-      // 🧾 Create user model
-      final user = UserModel(
-        uid: uid,
-        fullName: fullName.text.trim(),
-        email: email,
-        phone: phoneNo.text.trim(),
-      );
+      // 🚨 SAFETY CHECK (prevents "unexpected null value")
+      if (user == null) {
+        throw Exception('User creation failed');
+      }
 
-      // ☁️ Save user to Firestore
-      await UserRepository.instance.createUser(user);
+      // 2️⃣ Send verification email
+      await user.sendEmailVerification();
 
-      // 📲 Trigger phone OTP
-      triggerPhoneAuth();
+      // 3️⃣ Navigate to Verify Email screen
+      Get.offAllNamed('/verify-email');
 
+      // 4️⃣ Notify user
       Get.snackbar(
-        "Success",
-        "Account created successfully",
+        'Verify your email',
+        'A verification link has been sent to ${email.text.trim()}',
         snackPosition: SnackPosition.BOTTOM,
       );
     } on FirebaseAuthException catch (e) {
       Get.snackbar(
-        "Signup failed",
-        e.message ?? "Something went wrong",
+        'Signup failed',
+        e.message ?? 'Something went wrong',
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {
       Get.snackbar(
-        "Error",
-        "Unexpected error occurred",
+        'Signup failed',
+        e.toString(),
         snackPosition: SnackPosition.BOTTOM,
       );
     } finally {
@@ -87,14 +59,41 @@ class SignUpController extends GetxController {
     }
   }
 
-  // -----------------------------
-  // CLEANUP
-  // -----------------------------
+  /// ✅ CHECK IF EMAIL IS VERIFIED
+  Future<void> checkEmailVerified() async {
+    try {
+      isLoading.value = true;
+
+      final user = _auth.currentUser;
+
+      if (user == null) {
+        Get.offAllNamed('/login');
+        return;
+      }
+
+      // 🔄 Refresh user data from Firebase
+      await user.reload();
+      final refreshedUser = _auth.currentUser;
+
+      if (refreshedUser != null && refreshedUser.emailVerified) {
+        // ✅ Email verified → enter app
+        Get.offAllNamed('/home');
+      } else {
+        Get.snackbar(
+          'Not verified',
+          'Please verify your email first',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   @override
   void onClose() {
     fullName.dispose();
     email.dispose();
-    phoneNo.dispose();
     password.dispose();
     super.onClose();
   }

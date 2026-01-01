@@ -13,8 +13,8 @@ class UserModel {
     required this.phone,
   });
 
-  /// 🔁 Convert model → Firestore
-  Map<String, dynamic> toJson() {
+  /// 🔁 App → Firestore
+  Map<String, dynamic> toMap() {
     return {
       'uid': uid,
       'fullName': fullName,
@@ -23,8 +23,8 @@ class UserModel {
     };
   }
 
-  /// 🔁 Firestore Map → Model
-  factory UserModel.fromJson(Map<String, dynamic> data) {
+  /// 🔁 Firestore Map → App
+  factory UserModel.fromMap(Map<String, dynamic> data) {
     return UserModel(
       uid: data['uid'] ?? '',
       fullName: data['fullName'] ?? '',
@@ -33,8 +33,10 @@ class UserModel {
     );
   }
 
-  /// 🔁 Firestore Document → Model
-  factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
+  /// 🔁 Firestore Document → App
+  factory UserModel.fromSnapshot(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final data = doc.data()!;
     return UserModel(
       uid: doc.id,

@@ -1,87 +1,77 @@
 import 'package:flutter/material.dart';
-
-/// 🔹 Features available on Home screen
-enum HomeFeature {
-  campusAssistant,
-  academicHub,
-  smartBudgeting,
-  campusPayScanner,
-}
+import 'package:get/get.dart';
 
 class HomeScreen extends StatelessWidget {
-  final void Function(HomeFeature feature) onFeatureSelected;
-  final VoidCallback onProfileTap;
-
-  const HomeScreen({
-    super.key,
-    required this.onFeatureSelected,
-    required this.onProfileTap,
-  });
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _Header(onProfileTap: onProfileTap),
-            const SizedBox(height: 24),
-            Text(
-              'What would you like to do today?',
-              style: theme.textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 0.95,
-                children: [
-                  _FeatureCard(
-                    icon: Icons.chat_bubble_rounded,
-                    title: 'Campus Assistant',
-                    subtitle: 'Ask anything instantly',
-                    color: const Color(0xFF4A90E2),
-                    onTap: () => onFeatureSelected(HomeFeature.campusAssistant),
-                  ),
-                  _FeatureCard(
-                    icon: Icons.school_rounded,
-                    title: 'Academic Hub',
-                    subtitle: 'Notes & resources',
-                    color: const Color(0xFF7B61FF),
-                    onTap: () => onFeatureSelected(HomeFeature.academicHub),
-                  ),
-                  _FeatureCard(
-                    icon: Icons.account_balance_wallet_rounded,
-                    title: 'Smart Budgeting',
-                    subtitle: 'Track expenses',
-                    color: const Color(0xFF2BB673),
-                    onTap: () => onFeatureSelected(HomeFeature.smartBudgeting),
-                  ),
-                  _FeatureCard(
-                    icon: Icons.qr_code_scanner_rounded,
-                    title: 'CampusPay',
-                    subtitle: 'Scan & pay fast',
-                    color: const Color(0xFFFF8C42),
-                    onTap: () =>
-                        onFeatureSelected(HomeFeature.campusPayScanner),
-                  ),
-                ],
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F9FC),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _Header(
+                onProfileTap: () => Get.toNamed('/profile'),
               ),
-            ),
-          ],
+              const SizedBox(height: 24),
+              Text(
+                'What would you like to do today?',
+                style: theme.textTheme.titleLarge,
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
+                  childAspectRatio: 0.95,
+                  children: [
+                    _FeatureCard(
+                      icon: Icons.chat_bubble_rounded,
+                      title: 'Campus Assistant',
+                      subtitle: 'Ask anything instantly',
+                      color: const Color(0xFF4A90E2),
+                      onTap: () => Get.toNamed('/assistant'),
+                    ),
+                    _FeatureCard(
+                      icon: Icons.school_rounded,
+                      title: 'Academic Hub',
+                      subtitle: 'Notes & resources',
+                      color: const Color(0xFF7B61FF),
+                      onTap: () => Get.toNamed('/academic-hub'),
+                    ),
+                    _FeatureCard(
+                      icon: Icons.account_balance_wallet_rounded,
+                      title: 'Smart Budgeting',
+                      subtitle: 'Track expenses',
+                      color: const Color(0xFF2BB673),
+                      onTap: () => Get.toNamed('/smart-budgeting'),
+                    ),
+                    _FeatureCard(
+                      icon: Icons.qr_code_scanner_rounded,
+                      title: 'CampusPay',
+                      subtitle: 'Scan & pay fast',
+                      color: const Color(0xFFFF8C42),
+                      onTap: () => Get.toNamed('/scanner'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// 🔹 Top header with greeting + profile icon
+/// 🔹 Header with greeting + profile icon
 class _Header extends StatelessWidget {
   final VoidCallback onProfileTap;
 
@@ -91,9 +81,9 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Column(
+        const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             Text(
               'Good day 👋',
               style: TextStyle(
@@ -130,7 +120,7 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// 🔹 Individual feature card
+/// 🔹 Feature Card
 class _FeatureCard extends StatelessWidget {
   final IconData icon;
   final String title;

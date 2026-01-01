@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import '../../controllers/profile_controller.dart';
 import '../../models/user_model.dart';
 

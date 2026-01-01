@@ -1,40 +1,72 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
-
-import '../controllers/otp_controller.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthRepository extends GetxController {
   static AuthRepository get instance => Get.find<AuthRepository>();
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final isLoading = false.obs;
 
-  /// 📲 SEND OTP
-  Future<void> phoneAuthentication(String phoneNo) async {
-    await _auth.verifyPhoneNumber(
-      phoneNumber: phoneNo,
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        // Auto verification (rare on emulator)
-        await _auth.signInWithCredential(credential);
+  /// 🔐 LOGIN WITH EMAIL & PASSWORD
+  Future<void> loginWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      isLoading.value = true;
+
+      // 1️⃣ Sign in
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password.trim(),
+      );
+
+      final user = userCredential.user;
+
+      // 🚨 Safety check
+      if (user == null) {
+        throw Exception('Login failed');
+      }
+
+      // 🔄 Refresh user state
+      await user.reload();
+      final refreshedUser = _auth.currentUser;
+
+      // 2️⃣ Enforce email verification
+      if (refreshedUser != null && refreshedUser.emailVerified) {
+        // ✅ Verified → allow entry
         Get.offAllNamed('/home');
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        Get.snackbar(
-          'Verification failed',
-          e.message ?? 'Something went wrong',
-        );
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        // 🔑 Save verification ID
-        OtpController.instance.verificationId = verificationId;
+      } else {
+        // ❌ Not verified → block login
+        await _auth.signOut();
 
-        // ➡️ Go to OTP screen
-        Get.toNamed('/otp');
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {
-        OtpController.instance.verificationId = verificationId;
-      },
-    );
+        Get.snackbar(
+          'Email not verified',
+          'Please verify your email before logging in',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+
+        Get.offAllNamed('/verify-email');
+      }
+    } on FirebaseAuthException catch (e) {
+      Get.snackbar(
+        'Login failed',
+        e.message ?? 'Invalid credentials',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Login failed',
+        e.toString(),
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      isLoading.value = false;
+    }
   }
+
+  /// 👤 CURRENT USER
+  User? get currentUser => _auth.currentUser;
 
   /// 🚪 LOGOUT
   Future<void> logout() async {
