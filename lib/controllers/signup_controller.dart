@@ -1,22 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SignUpController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  // 🔤 Input controllers
   final fullName = TextEditingController();
   final email = TextEditingController();
   final password = TextEditingController();
 
+  // ⏳ Loading state
   final isLoading = false.obs;
 
-  /// 🔐 SIGN UP + SEND EMAIL VERIFICATION
+  /// 🔐 SIGN UP + CREATE FIRESTORE USER + EMAIL VERIFICATION
   Future<void> signUp() async {
     try {
       isLoading.value = true;
 
-      // 1️⃣ Create user
+      // 🧪 Basic validation
+      if (fullName.text.trim().isEmpty ||
+          email.text.trim().isEmpty ||
+          password.text.trim().length < 6) {
+        throw Exception('Please fill all fields correctly');
+      }
+
+      // 1️⃣ Create Firebase Auth user
       UserCredential userCredential =
           await _auth.createUserWithEmailAndPassword(
         email: email.text.trim(),
@@ -24,28 +35,34 @@ class SignUpController extends GetxController {
       );
 
       final user = userCredential.user;
-
-      // 🚨 SAFETY CHECK (prevents "unexpected null value")
       if (user == null) {
         throw Exception('User creation failed');
       }
 
-      // 2️⃣ Send verification email
+      // 2️⃣ Create Firestore user document (🔥 THIS FIXES EVERYTHING)
+      await _db.collection('users').doc(user.uid).set({
+        'uid': user.uid,
+        'fullName': fullName.text.trim(),
+        'email': email.text.trim(),
+        'phone': '',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // 3️⃣ Send email verification
       await user.sendEmailVerification();
 
-      // 3️⃣ Navigate to Verify Email screen
+      // 4️⃣ Navigate to verify email screen
       Get.offAllNamed('/verify-email');
 
-      // 4️⃣ Notify user
       Get.snackbar(
         'Verify your email',
-        'A verification link has been sent to ${email.text.trim()}',
+        'Verification link sent to ${email.text.trim()}',
         snackPosition: SnackPosition.BOTTOM,
       );
     } on FirebaseAuthException catch (e) {
       Get.snackbar(
         'Signup failed',
-        e.message ?? 'Something went wrong',
+        e.message ?? 'Authentication error',
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {
@@ -59,24 +76,23 @@ class SignUpController extends GetxController {
     }
   }
 
-  /// ✅ CHECK IF EMAIL IS VERIFIED
+  /// ✅ CHECK EMAIL VERIFICATION STATUS
   Future<void> checkEmailVerified() async {
     try {
       isLoading.value = true;
 
       final user = _auth.currentUser;
-
       if (user == null) {
         Get.offAllNamed('/login');
         return;
       }
 
-      // 🔄 Refresh user data from Firebase
+      // 🔄 Reload user from Firebase
       await user.reload();
       final refreshedUser = _auth.currentUser;
 
       if (refreshedUser != null && refreshedUser.emailVerified) {
-        // ✅ Email verified → enter app
+        // ✅ Verified → allow entry
         Get.offAllNamed('/home');
       } else {
         Get.snackbar(
