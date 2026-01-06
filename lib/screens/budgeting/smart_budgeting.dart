@@ -6,55 +6,119 @@ class SmartBudgetingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC),
-      appBar: AppBar(
-        title: const Text('Smart Budgeting'),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Manage your spending smartly',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+    final theme = Theme.of(context);
+
+    return SafeArea(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight,
+              ),
+              child: Center(
+                child: FractionallySizedBox(
+                  widthFactor: 0.9,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 430),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(18, 20, 18, 22),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.96),
+                        borderRadius: BorderRadius.circular(36),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 30,
+                            offset: const Offset(0, 20),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildHeader(theme),
+                          const SizedBox(height: 20),
+
+                          Text(
+                            'Manage your spending smartly',
+                            style: theme.textTheme.titleMedium,
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          /// Personal Expenses
+                          BudgetOptionCard(
+                            title: 'Personal Expenses',
+                            subtitle: 'Track your own spending',
+                            icon: Icons.person_rounded,
+                            color: const Color(0xFF4B6BFF),
+                            onTap: () =>
+                                Get.toNamed('/personal-expenses'),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          /// Shared Expenses
+                          BudgetOptionCard(
+                            title: 'Shared Expenses',
+                            subtitle: 'Split bills with friends',
+                            icon: Icons.group_rounded,
+                            color: const Color(0xFF2BB673),
+                            onTap: () =>
+                                Get.toNamed('/shared-expenses'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 20),
+            ),
+          );
+        },
+      ),
+    );
+  }
 
-              /// Personal Expenses
-              BudgetOptionCard(
-                title: 'Personal Expenses',
-                subtitle: 'Track your own spending',
-                icon: Icons.person,
-                color: Colors.blue,
-                onTap: () => Get.toNamed('/personal-expenses'),
-              ),
-
-              const SizedBox(height: 16),
-
-              /// Shared Expenses
-              BudgetOptionCard(
-                title: 'Shared Expenses',
-                subtitle: 'Split bills with friends',
-                icon: Icons.group,
-                color: Colors.green,
-                onTap: () => Get.toNamed('/shared-expenses'),
-              ),
-            ],
+  /// 🔹 Header (same language as Home)
+  Widget _buildHeader(ThemeData theme) {
+    return Row(
+      children: [
+        Container(
+          height: 32,
+          width: 32,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF3AA8F7),
+                Color(0xFF47D6C4),
+              ],
+            ),
+          ),
+          alignment: Alignment.center,
+          child: const Icon(
+            Icons.account_balance_wallet_rounded,
+            size: 18,
+            color: Colors.white,
           ),
         ),
-      ),
+        const SizedBox(width: 8),
+        Text(
+          'Smart Budgeting',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }
 
-/// 🔹 Budget option card (SAFE InkWell usage)
+/// 🔹 Budget option card (Home-style, clean & professional)
 class BudgetOptionCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -74,11 +138,10 @@ class BudgetOptionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      elevation: 3,
+      color: const Color(0xFFF4F7FB),
+      borderRadius: BorderRadius.circular(22),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -87,32 +150,44 @@ class BudgetOptionCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
+                  color: color.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(icon, color: color, size: 28),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 26,
+                ),
               ),
               const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF16222C),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey,
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF5A6A7A),
+                      ),
                     ),
-                  ),
-                ],
-              )
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: Color(0xFF9AA6B5),
+              ),
             ],
           ),
         ),

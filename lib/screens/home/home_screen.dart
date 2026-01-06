@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../controllers/main_shell_controller.dart';
+import '../../controllers/profile_controller.dart'; // ✅ ADDED
 
 /// Enum representing the four big feature cards on the home screen.
 enum HomeFeature {
@@ -16,6 +17,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shellController = Get.find<MainShellController>();
+    final profileController = Get.find<ProfileController>(); // ✅ ADDED
 
     return SafeArea(
       child: LayoutBuilder(
@@ -47,7 +49,11 @@ class HomeScreen extends StatelessWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          _buildHeader(context, shellController),
+                          _buildHeader(
+                            context,
+                            shellController,
+                            profileController, // ✅ PASSED
+                          ),
                           const SizedBox(height: 20),
                           _buildHeroBanner(context, shellController),
                           const SizedBox(height: 18),
@@ -69,6 +75,7 @@ class HomeScreen extends StatelessWidget {
   Widget _buildHeader(
     BuildContext context,
     MainShellController shellController,
+    ProfileController profileController, // ✅ ADDED
   ) {
     final theme = Theme.of(context);
 
@@ -120,13 +127,22 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    'Student',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+
+                  /// ✅ ONLY THIS TEXT IS NOW DYNAMIC
+                  Obx(() {
+                    final user = profileController.user.value;
+                    final name = user?.fullName.trim();
+
+                    return Text(
+                      (name != null && name.isNotEmpty)
+                          ? name.split(' ').first
+                          : 'Student',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    );
+                  }),
                 ],
               ),
               const SizedBox(width: 10),

@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:student_campus_app/controllers/forgot_password_controller.dart';
 import 'package:student_campus_app/controllers/login_controller.dart';
+import 'package:student_campus_app/controllers/profile_controller.dart';
 import 'package:student_campus_app/controllers/signup_controller.dart';
 
 import 'firebase_options.dart';
@@ -52,7 +53,8 @@ Future<void> main() async {
   Get.put(LoginController(), permanent: true);
   Get.put(SignUpController(), permanent: true);
   Get.put(ForgotPasswordController(), permanent: true);
-  
+  Get.put(ProfileController(), permanent: true); // ✅ ADD THIS
+
   Get.lazyPut<GroupController>(() => GroupController(), fenix: true);
 
   runApp(const MyApp());
