@@ -1,3 +1,4 @@
+import 'package:student_campus_app/services/timetable_service.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
 
@@ -9,6 +10,82 @@ class TimetablePage extends StatefulWidget {
 }
 
 class _TimetablePageState extends State<TimetablePage> {
+
+  final TimetableService _timetableService = TimetableService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTimetable();
+  }
+
+  Future<void> _loadTimetable() async {
+    final data = await _timetableService.loadTimetable();
+
+    if (data.isEmpty) return;
+
+    setState(() {
+      _timeSlots.clear();
+      _subjects.clear();
+      _scheduled.clear();
+
+      final Map<String, int> subjectIndexMap = {};
+
+      for (final entry in data) {
+        final day = entry['day'];
+        final start = entry['startTime'];
+        final end = entry['endTime'];
+        final subjectName = entry['subjectName'];
+        final subjectId = entry['subjectId'];
+
+        // ---------- TIME SLOT ----------
+        final startParts = start.split(':');
+        final endParts = end.split(':');
+
+        final startTime = TimeOfDay(
+          hour: int.parse(startParts[0]),
+          minute: int.parse(startParts[1]),
+        );
+
+        final endTime = TimeOfDay(
+          hour: int.parse(endParts[0]),
+          minute: int.parse(endParts[1]),
+        );
+
+        int rowIndex = _timeSlots.indexWhere(
+          (s) => s.start == startTime && s.end == endTime,
+        );
+
+        if (rowIndex == -1) {
+          _timeSlots.add(TimeSlot(start: startTime, end: endTime));
+          rowIndex = _timeSlots.length - 1;
+        }
+
+        // ---------- SUBJECT ----------
+        if (!subjectIndexMap.containsKey(subjectId)) {
+          final subject = Subject(
+            id: subjectId,
+            name: subjectName,
+            color: _subjectColors[_subjects.length % _subjectColors.length],
+          );
+          _subjects.add(subject);
+          subjectIndexMap[subjectId] = _subjects.length - 1;
+        }
+
+        final subject = _subjects[subjectIndexMap[subjectId]!];
+
+        // ---------- DAY COLUMN ----------
+        if (!_activeDays.contains(day)) {
+          _activeDays.add(day);
+        }
+
+        final colIndex = _activeDays.indexOf(day);
+
+        _scheduled['$rowIndex-$colIndex'] = subject;
+      }
+    });
+  }
+
   final List<String> _allDays = const [
     'Monday',
     'Tuesday',
@@ -134,10 +211,19 @@ class _TimetablePageState extends State<TimetablePage> {
         ),
         const Spacer(),
         IconButton(
+          tooltip: 'Save',
+          icon: const Icon(Icons.save_rounded),
+          onPressed: () {
+            print("SAVE BUTTON PRESSED");
+            _saveTimetable();
+          },
+        ),
+        IconButton(
           tooltip: 'Back',
           icon: const Icon(Icons.close_rounded),
           onPressed: () => Navigator.pop(context),
         ),
+
       ],
     );
   }
@@ -988,7 +1074,56 @@ class _TimetablePageState extends State<TimetablePage> {
         Color(0xFFB0A8FF), // soft lavender
         Color(0xFFDDF9F3), // very light mint
       ];
+
+  List<Map<String, dynamic>> _buildTimetablePayload() {
+    final List<Map<String, dynamic>> result = [];
+
+    _scheduled.forEach((key, subject) {
+      final parts = key.split('-');
+      final row = int.parse(parts[0]);
+      final col = int.parse(parts[1]);
+
+      final timeSlot = _timeSlots[row];
+      final day = _activeDays[col];
+
+      result.add({
+        "day": day,
+        "startTime":
+            "${timeSlot.start.hour.toString().padLeft(2, '0')}:${timeSlot.start.minute.toString().padLeft(2, '0')}",
+        "endTime":
+            "${timeSlot.end.hour.toString().padLeft(2, '0')}:${timeSlot.end.minute.toString().padLeft(2, '0')}",
+        "subjectId": subject.id,
+        "subjectName": subject.name,
+      });
+
+    });
+
+    return result;
+  }
+
+  Future<void> _saveTimetable() async {
+    final data = _buildTimetablePayload();
+
+    print("TIMETABLE DATA TO SAVE: $data");
+
+    if (data.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Timetable is empty")),
+      );
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+
+    await _timetableService.saveTimetable(data);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Timetable saved")),
+    );
+  }
+
 }
+
 
 // ---------------- MODELS & SMALL WIDGETS ----------------
 
