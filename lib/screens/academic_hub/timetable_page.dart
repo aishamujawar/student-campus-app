@@ -21,7 +21,6 @@ class _TimetablePageState extends State<TimetablePage> {
 
   Future<void> _loadTimetable() async {
     final data = await _timetableService.loadTimetable();
-
     if (data.isEmpty) return;
 
     setState(() {
@@ -31,37 +30,37 @@ class _TimetablePageState extends State<TimetablePage> {
 
       final Map<String, int> subjectIndexMap = {};
 
-      for (final entry in data) {
-        final day = entry['day'];
-        final start = entry['startTime'];
-        final end = entry['endTime'];
-        final subjectName = entry['subjectName'];
-        final subjectId = entry['subjectId'];
+      // ---- 1. Rebuild rows FIRST (by index)
+      final rows = data.where((e) => e["type"] == "row").toList()
+        ..sort((a, b) => a["rowIndex"].compareTo(b["rowIndex"]));
 
-        // ---------- TIME SLOT ----------
-        final startParts = start.split(':');
-        final endParts = end.split(':');
+      for (final row in rows) {
+        final startParts = row["startTime"].split(":");
+        final endParts = row["endTime"].split(":");
 
-        final startTime = TimeOfDay(
-          hour: int.parse(startParts[0]),
-          minute: int.parse(startParts[1]),
+        _timeSlots.add(
+          TimeSlot(
+            start: TimeOfDay(
+              hour: int.parse(startParts[0]),
+              minute: int.parse(startParts[1]),
+            ),
+            end: TimeOfDay(
+              hour: int.parse(endParts[0]),
+              minute: int.parse(endParts[1]),
+            ),
+          ),
         );
+      }
 
-        final endTime = TimeOfDay(
-          hour: int.parse(endParts[0]),
-          minute: int.parse(endParts[1]),
-        );
+      // ---- 2. Rebuild scheduled cells
+      final cells = data.where((e) => e["type"] == "cell");
 
-        int rowIndex = _timeSlots.indexWhere(
-          (s) => s.start == startTime && s.end == endTime,
-        );
+      for (final entry in cells) {
+        final rowIndex = entry["rowIndex"];
+        final dayIndex = entry["dayIndex"];
+        final subjectId = entry["subjectId"];
+        final subjectName = entry["subjectName"];
 
-        if (rowIndex == -1) {
-          _timeSlots.add(TimeSlot(start: startTime, end: endTime));
-          rowIndex = _timeSlots.length - 1;
-        }
-
-        // ---------- SUBJECT ----------
         if (!subjectIndexMap.containsKey(subjectId)) {
           final subject = Subject(
             id: subjectId,
@@ -73,15 +72,7 @@ class _TimetablePageState extends State<TimetablePage> {
         }
 
         final subject = _subjects[subjectIndexMap[subjectId]!];
-
-        // ---------- DAY COLUMN ----------
-        if (!_activeDays.contains(day)) {
-          _activeDays.add(day);
-        }
-
-        final colIndex = _activeDays.indexOf(day);
-
-        _scheduled['$rowIndex-$colIndex'] = subject;
+        _scheduled["$rowIndex-$dayIndex"] = subject;
       }
     });
   }
@@ -1078,24 +1069,34 @@ class _TimetablePageState extends State<TimetablePage> {
   List<Map<String, dynamic>> _buildTimetablePayload() {
     final List<Map<String, dynamic>> result = [];
 
+    // Save ALL rows (even empty ones)
+    for (int row = 0; row < _timeSlots.length; row++) {
+      final slot = _timeSlots[row];
+
+      result.add({
+        "type": "row",
+        "rowIndex": row,
+        "startTime":
+            "${slot.start.hour.toString().padLeft(2, '0')}:${slot.start.minute.toString().padLeft(2, '0')}",
+        "endTime":
+            "${slot.end.hour.toString().padLeft(2, '0')}:${slot.end.minute.toString().padLeft(2, '0')}",
+      });
+    }
+
+    // Save scheduled subjects
     _scheduled.forEach((key, subject) {
       final parts = key.split('-');
       final row = int.parse(parts[0]);
       final col = int.parse(parts[1]);
 
-      final timeSlot = _timeSlots[row];
-      final day = _activeDays[col];
-
       result.add({
-        "day": day,
-        "startTime":
-            "${timeSlot.start.hour.toString().padLeft(2, '0')}:${timeSlot.start.minute.toString().padLeft(2, '0')}",
-        "endTime":
-            "${timeSlot.end.hour.toString().padLeft(2, '0')}:${timeSlot.end.minute.toString().padLeft(2, '0')}",
+        "type": "cell",
+        "rowIndex": row,
+        "dayIndex": col,
+        "day": _activeDays[col],
         "subjectId": subject.id,
         "subjectName": subject.name,
       });
-
     });
 
     return result;
