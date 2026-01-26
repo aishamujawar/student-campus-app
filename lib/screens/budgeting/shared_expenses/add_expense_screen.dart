@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
 import 'controllers/expense_controller.dart';
 
 class AddExpenseScreen extends StatefulWidget {
@@ -19,6 +18,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final ExpenseController expenseController = Get.find<ExpenseController>();
 
   bool isLoading = false;
+  DateTime selectedDate = DateTime.now(); // ✅ default today
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +38,22 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(labelText: 'Amount'),
             ),
+            const SizedBox(height: 16),
+
+            /// 📅 DATE PICKER
+            InkWell(
+              onTap: _pickDate,
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Expense Date',
+                  border: OutlineInputBorder(),
+                ),
+                child: Text(
+                  '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
+                ),
+              ),
+            ),
+
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
@@ -54,6 +70,19 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+
+    if (picked != null) {
+      setState(() => selectedDate = picked);
+    }
+  }
+
   Future<void> _submit() async {
     final title = titleController.text.trim();
     final rawAmount = amountController.text.trim();
@@ -64,7 +93,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
 
     final amount = double.tryParse(rawAmount);
-
     if (amount == null) {
       Get.snackbar('Error', 'Invalid amount');
       return;
@@ -77,9 +105,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         groupId: widget.groupId,
         title: title,
         amount: amount,
+        createdAt: selectedDate, // ✅ date passed
       );
 
-      Get.back(); // success
+      Get.back();
     } catch (e) {
       Get.snackbar('Error', 'Failed to add expense');
     } finally {

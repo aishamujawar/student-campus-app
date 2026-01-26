@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'controllers/expense_controller.dart';
 import 'controllers/group_controller.dart';
 import 'add_expense_screen.dart';
+import 'groups_list_screen.dart';
 import 'widgets/expense_tile.dart';
 import 'widgets/balance_card.dart';
 
@@ -27,9 +28,13 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
   late final ExpenseController expenseController;
   final GroupController groupController = Get.find();
 
-  final currentUserId = FirebaseAuth.instance.currentUser!.uid;
-
+  final String currentUserId = FirebaseAuth.instance.currentUser!.uid;
   bool get isCreator => widget.groupData['createdBy'] == currentUserId;
+
+  final RxMap<String, String> memberNames = <String, String>{}.obs;
+  List<String> _cachedMembers = [];
+
+  bool _handledDeletion = false;
 
   @override
   void initState() {
@@ -38,8 +43,25 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     expenseController.fetchExpenses(widget.groupId);
   }
 
-  // ───────────────────────── ADD MEMBER DIALOG ─────────────────────────
+  Future<void> _ensureMemberNames(List<String> memberIds) async {
+    for (final uid in memberIds) {
+      if (memberNames.containsKey(uid)) continue;
 
+      final doc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+
+      final fullName = doc.data()?['fullName'] ?? 'User';
+      memberNames[uid] = fullName.toString().split(' ').first;
+    }
+  }
+
+  /// ───────── SETTLE UP ─────────
+  Future<void> _settleUp() async {
+    await expenseController.settleGroup(widget.groupId);
+    Get.snackbar('Settled', 'New cycle started');
+  }
+
+  /// ➕ ADD MEMBER
   void _showAddMemberDialog() {
     final emailController = TextEditingController();
 
@@ -48,15 +70,18 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
         title: const Text('Add Member'),
         content: TextField(
           controller: emailController,
-          decoration: const InputDecoration(hintText: 'Enter email'),
+          decoration: const InputDecoration(labelText: 'Member email'),
         ),
         actions: [
           TextButton(onPressed: Get.back, child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () async {
+              final email = emailController.text.trim();
+              if (email.isEmpty) return;
+
               await groupController.addMemberToGroup(
                 widget.groupId,
-                emailController.text,
+                email,
               );
               Get.back();
             },
@@ -67,24 +92,19 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     );
   }
 
-  // ───────────────────────── DELETE GROUP ─────────────────────────
-
+  /// 🗑️ DELETE GROUP
   void _confirmDeleteGroup() {
     Get.dialog(
       AlertDialog(
         title: const Text('Delete Group'),
         content: const Text(
-          'This will permanently delete the group and all expenses.',
+          'This will permanently delete the group and all its expenses.',
         ),
         actions: [
           TextButton(onPressed: Get.back, child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              await groupController.deleteGroup(widget.groupId);
-              Get.back();
-              Get.back();
-            },
+          TextButton(
+            onPressed: _deleteGroup,
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Delete'),
           ),
         ],
@@ -92,14 +112,10 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     );
   }
 
-  // ───────────────────────── SETTLE UP ─────────────────────────
-
-  void _settleUp() {
-    Get.snackbar(
-      'Settle Up',
-      'Settlement logic will be added next',
-      snackPosition: SnackPosition.BOTTOM,
-    );
+  Future<void> _deleteGroup() async {
+    Get.back();
+    await groupController.deleteGroup(widget.groupId);
+    // Navigation handled by stream safely
   }
 
   @override
@@ -110,7 +126,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
         actions: [
           if (isCreator)
             IconButton(
-              icon: const Icon(Icons.delete),
+              icon: const Icon(Icons.delete_outline),
               onPressed: _confirmDeleteGroup,
             ),
         ],
@@ -121,18 +137,49 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
             .doc(widget.groupId)
             .snapshots(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          /// ⏳ WAIT PROPERLY
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
+          }
+
+          /// 🔥 GROUP DELETED — SAFE CHECK
+          if (snapshot.hasData &&
+              snapshot.data != null &&
+              !snapshot.data!.exists) {
+            if (!_handledDeletion) {
+              _handledDeletion = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                Get.snackbar('Deleted', 'Group deleted successfully');
+                Get.offAll(() => const GroupsListScreen());
+              });
+            }
+            return const SizedBox.shrink();
+          }
+
+          /// 🚫 SAFETY
+          if (!snapshot.hasData || snapshot.data == null) {
+            return const Center(child: Text('Something went wrong'));
           }
 
           final data = snapshot.data!.data() as Map<String, dynamic>;
           final members = List<String>.from(data['members'] ?? []);
+          final Timestamp? ts = data['lastSettledAt'];
+          final DateTime? lastSettledAt = ts?.toDate();
+
+          if (_cachedMembers.toString() != members.toString()) {
+            _cachedMembers = List.from(members);
+            _ensureMemberNames(members);
+          }
 
           return Column(
             children: [
-              // ───────────────────────── BALANCE CARD ─────────────────────────
+              /// ───────── BALANCE ─────────
               Obx(() {
-                final balances = expenseController.calculateBalances(members);
+                expenseController.expenses.length;
+                final balances = expenseController.calculateBalances(
+                  members: members,
+                  lastSettledAt: lastSettledAt,
+                );
                 final yourBalance = balances[currentUserId] ?? 0.0;
 
                 return BalanceCard(
@@ -144,22 +191,16 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                 );
               }),
 
-              // ───────────────────────── SETTLE UP BUTTON ─────────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('Settle Up'),
-                    onPressed: _settleUp,
+              if (isCreator)
+                TextButton(
+                  onPressed: _settleUp,
+                  child: const Text(
+                    'Settle up',
+                    style: TextStyle(color: Colors.grey),
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 8),
-
-              // ───────────────────────── MEMBERS ─────────────────────────
+              /// ───────── MEMBERS ─────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
@@ -172,63 +213,61 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                     ),
                     if (isCreator)
                       IconButton(
-                        icon: const Icon(Icons.person_add),
+                        icon: const Icon(Icons.add),
                         onPressed: _showAddMemberDialog,
                       ),
                   ],
                 ),
               ),
 
-              SizedBox(
-                height: 70,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: members.length,
-                  itemBuilder: (context, index) {
-                    final memberId = members[index];
-                    final isYou = memberId == currentUserId;
+              Obx(() {
+                return Wrap(
+                  spacing: 8,
+                  children: members.map((uid) {
+                    final name = uid == currentUserId
+                        ? 'You'
+                        : memberNames[uid] ?? 'Member';
 
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: Chip(
-                        label: Text(isYou ? 'You' : 'Member'),
-                        deleteIcon: isCreator && !isYou
-                            ? const Icon(Icons.close)
-                            : null,
-                        onDeleted: isCreator && !isYou
-                            ? () async {
-                                await groupController.removeMemberFromGroup(
-                                  widget.groupId,
-                                  memberId,
-                                );
-                              }
-                            : null,
-                      ),
+                    return Chip(
+                      label: Text(name),
+                      deleteIcon: isCreator && uid != currentUserId
+                          ? const Icon(Icons.close)
+                          : null,
+                      onDeleted: isCreator && uid != currentUserId
+                          ? () {
+                              groupController.removeMemberFromGroup(
+                                widget.groupId,
+                                uid,
+                              );
+                            }
+                          : null,
                     );
+                  }).toList(),
+                );
+              }),
+
+              /// ───────── ADD EXPENSE ─────────
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Expense'),
+                  onPressed: () {
+                    Get.to(() => AddExpenseScreen(groupId: widget.groupId));
                   },
                 ),
               ),
 
-              const Divider(),
-
-              // ───────────────────────── ADD EXPENSE ─────────────────────────
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Expense'),
-                    onPressed: () {
-                      Get.to(
-                        () => AddExpenseScreen(groupId: widget.groupId),
-                      );
-                    },
+              if (lastSettledAt != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Text(
+                    'Settled on ${lastSettledAt.day}/${lastSettledAt.month}/${lastSettledAt.year}',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ),
-              ),
 
-              // ───────────────────────── EXPENSE LIST ─────────────────────────
+              /// ───────── EXPENSE LIST ─────────
               Expanded(
                 child: Obx(() {
                   if (expenseController.expenses.isEmpty) {
@@ -242,9 +281,12 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                       final paidByYou = expense.paidBy == currentUserId;
 
                       return ExpenseTile(
-                        title: expense.title,
+                        title:
+                            '${expense.title} • ${expense.createdAt.day}/${expense.createdAt.month}/${expense.createdAt.year}',
                         amount: expense.amount,
-                        paidByName: paidByYou ? 'You' : 'Another member',
+                        paidByName: paidByYou
+                            ? 'You'
+                            : memberNames[expense.paidBy] ?? 'Member',
                       );
                     },
                   );
