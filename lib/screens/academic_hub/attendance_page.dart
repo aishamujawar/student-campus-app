@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
+import '../../services/attendance_service.dart';
 
 // =====================================================
 // ATTENDANCE PAGE
@@ -17,13 +17,11 @@ class AttendancePage extends StatefulWidget {
 
 class _AttendancePageState extends State<AttendancePage>
     with SingleTickerProviderStateMixin {
+  // ---------------- SERVICE ----------------
+  final AttendanceService _attendanceService = AttendanceService();
 
   // ---------------- MODE ----------------
-  bool _trackingMode = true;
-
-  // ---------------- FIREBASE ----------------
-  final _firestore = FirebaseFirestore.instance;
-  final _auth = FirebaseAuth.instance;
+  int _selectedMode = 0; // 0: Daily tracking, 1: Stats, 2: Calculator
 
   // ---------------- DATE ----------------
   DateTime _selectedDate = DateTime.now();
@@ -40,7 +38,13 @@ class _AttendancePageState extends State<AttendancePage>
   final _heldController = TextEditingController();
 
   final List<String> _days = const [
-    'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday'
   ];
 
   final Map<String, int> _weeklySchedule = {};
@@ -56,17 +60,33 @@ class _AttendancePageState extends State<AttendancePage>
   int _simHeld = 0;
   int _simAttended = 0;
 
+  // ---------------- STATS ----------------
+  String? _selectedSubjectId;
+  final Map<String, String> _subjectMap = {};
+  bool _loadingStats = false;
+  final Map<String, Map<String, dynamic>> _subjectStats = {};
+  final Map<String, Map<String, dynamic>> _monthlyStats = {};
+
+  // ---------------- MIGRATION ----------------
+  bool _migrating = false;
+  String _debugLog = '';
+
   // ---------------- ANIMATION ----------------
   late AnimationController _animController;
   late Animation<double> _percentAnim;
   double _oldPercent = 0;
 
-  double get _simPercent =>
-      _simHeld == 0 ? 0 : _simAttended / _simHeld;
+  double get _simPercent => _simHeld == 0 ? 0 : _simAttended / _simHeld;
 
   Color get _percentColor {
     if (_simPercent < 0.60) return const Color(0xFFEF5350);
     if (_simPercent < 0.75) return const Color(0xFFFFA726);
+    return const Color(0xFF57E4C9);
+  }
+
+  Color _statsPercentColor(double percent) {
+    if (percent < 0.60) return const Color(0xFFEF5350);
+    if (percent < 0.75) return const Color(0xFFFFA726);
     return const Color(0xFF57E4C9);
   }
 
@@ -79,6 +99,7 @@ class _AttendancePageState extends State<AttendancePage>
     );
     _percentAnim = const AlwaysStoppedAnimation(0);
     _loadDay();
+    _loadSubjects();
   }
 
   @override
@@ -88,79 +109,89 @@ class _AttendancePageState extends State<AttendancePage>
   }
 
   // =====================================================
-  // LOAD DAILY SCHEDULE (FIXED SUNDAY BEHAVIOR)
+  // LOAD DAY
   // =====================================================
 
   Future<void> _loadDay() async {
-    _todayClasses.clear();
-    _attendance.clear();
-    _timetableMissing = false;
-    _noClassesToday = false;
+    final result = await _attendanceService.loadDay(_selectedDate);
 
-    final uid = _auth.currentUser!.uid;
-    final weekdayIndex = _selectedDate.weekday - 1;
+    if (!mounted) return;
 
-    final rowsSnap = await _firestore
-        .collection('users')
-        .doc(uid)
-        .collection('timetable')
-        .where('type', isEqualTo: 'row')
-        .get();
+    setState(() {
+      _todayClasses.clear();
+      _attendance.clear();
+      _timetableMissing = result.timetableMissing;
+      _noClassesToday = result.noClasses;
 
-    final cellsSnap = await _firestore
-        .collection('users')
-        .doc(uid)
-        .collection('timetable')
-        .where('type', isEqualTo: 'cell')
-        .where('dayIndex', isEqualTo: weekdayIndex)
-        .get();
+      _todayClasses.addAll(result.classes.map((c) => _TodayClass(
+        classId: c.classId,
+        subjectId: c.subjectId,
+        subjectName: c.subjectName,
+        startTime: c.startTime,
+        endTime: c.endTime,
+      )));
 
-    // ---- timetable missing ONLY if no rows at all
-    if (rowsSnap.docs.isEmpty) {
-      setState(() => _timetableMissing = true);
-      return;
-    }
+      _attendance.addAll(result.attendance);
+    });
+  }
 
-    // ---- no classes today (Sunday etc.)
-    if (cellsSnap.docs.isEmpty) {
-      setState(() => _noClassesToday = true);
-      return;
-    }
+  // =====================================================
+  // LOAD SUBJECTS
+  // =====================================================
 
-    for (final cell in cellsSnap.docs) {
-      final row = rowsSnap.docs.firstWhere(
-        (r) => r['rowIndex'] == cell['rowIndex'],
-      );
+  Future<void> _loadSubjects() async {
+    final subjects = await _attendanceService.loadSubjects();
 
-      final classId =
-          '${cell['subjectId']}_${cell['rowIndex']}_${cell['dayIndex']}';
+    setState(() {
+      _subjectMap
+        ..clear()
+        ..addAll(subjects);
 
-      _todayClasses.add(
-        _TodayClass(
-          classId: classId,
-          subjectName: cell['subjectName'],
-          startTime: row['startTime'],
-          endTime: row['endTime'],
-        ),
-      );
-    }
+      if (_subjectMap.isNotEmpty) {
+        _selectedSubjectId = _subjectMap.keys.first;
+        _loadSubjectStats(_selectedSubjectId!);
+      }
+    });
+  }
 
-    _todayClasses.sort((a, b) => a.startTime.compareTo(b.startTime));
+  // =====================================================
+  // LOAD STATS
+  // =====================================================
 
-    final dateKey = DateFormat('yyyy-MM-dd').format(_selectedDate);
-    final attSnap = await _firestore
-        .collection('users')
-        .doc(uid)
-        .collection('attendance')
-        .doc(dateKey)
-        .collection('records')
-        .get();
+  Future<void> _loadSubjectStats(String subjectId) async {
+    if (subjectId.isEmpty) return;
 
-    for (final d in attSnap.docs) {
-      _attendance[d.id] = d['status'];
-    }
+    setState(() => _loadingStats = true);
 
-    setState(() {});
+    final result = await _attendanceService.loadSubjectStats(subjectId);
+
+    final Map<String, Map<String, dynamic>> monthly = {};
+
+    result.months.forEach((month, data) {
+      if (data['held']! > 0) {
+        final percent = data['attended']! / data['held']!;
+        monthly[month] = {
+          'held': data['held'],
+          'attended': data['attended'],
+          'percent': percent,
+          'color': _statsPercentColor(percent),
+        };
+      }
+    });
+
+    setState(() {
+      final subjectName = _subjectMap[subjectId] ?? 'Unknown';
+      _subjectStats[subjectId] = {
+        'totalHeld': result.totalHeld,
+        'totalAttended': result.totalAttended,
+        'totalPercent': result.totalHeld == 0
+            ? 0
+            : result.totalAttended / result.totalHeld,
+        'subjectName': subjectName,
+      };
+      _monthlyStats[subjectId] = monthly;
+      _loadingStats = false;
+    });
   }
 
   // =====================================================
@@ -168,19 +199,54 @@ class _AttendancePageState extends State<AttendancePage>
   // =====================================================
 
   Future<void> _mark(String classId, String status) async {
-    final uid = _auth.currentUser!.uid;
-    final dateKey = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final cls = _todayClasses.firstWhere(
+      (c) => c.classId == classId,
+      orElse: () => _TodayClass(
+        classId: '',
+        subjectId: '',
+        subjectName: '',
+        startTime: '',
+        endTime: '',
+      ),
+    );
 
-    setState(() => _attendance[classId] = status);
+    if (cls.classId.isEmpty) {
+      return;
+    }
 
-    await _firestore
-        .collection('users')
-        .doc(uid)
-        .collection('attendance')
-        .doc(dateKey)
-        .collection('records')
-        .doc(classId)
-        .set({'status': status});
+    final currentStatus = _attendance[classId];
+    final toggleOff = currentStatus == status;
+
+    setState(() {
+      toggleOff
+          ? _attendance.remove(classId)
+          : _attendance[classId] = status;
+    });
+
+    await _attendanceService.markAttendance(
+      date: _selectedDate,
+      classId: classId,
+      status: status,
+      subjectId: cls.subjectId,
+      toggleOff: toggleOff,
+    );
+  }
+
+  // =====================================================
+  // MIGRATION
+  // =====================================================
+
+  Future<void> _migrateOldRecords() async {
+    setState(() => _migrating = true);
+    final log = await _attendanceService.migrateOldRecords();
+    setState(() {
+      _debugLog = log;
+      _migrating = false;
+    });
+
+    if (_selectedSubjectId != null) {
+      _loadSubjectStats(_selectedSubjectId!);
+    }
   }
 
   // =====================================================
@@ -277,7 +343,9 @@ class _AttendancePageState extends State<AttendancePage>
         const SizedBox(height: 12),
         _modeToggle(),
         const SizedBox(height: 18),
-        _trackingMode ? _trackingUI() : _calculatorUI(),
+        if (_selectedMode == 0) _trackingUI(),
+        if (_selectedMode == 1) _statsUI(),
+        if (_selectedMode == 2) _calculatorUI(),
       ],
     ),
   );
@@ -408,6 +476,412 @@ class _AttendancePageState extends State<AttendancePage>
   }
 
   // =====================================================
+  // STATS UI
+  // =====================================================
+
+  Widget _statsUI() {
+    if (_subjectMap.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(20),
+        child: Text(
+          'No subjects found in timetable.\nAdd subjects to your timetable first.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Color(0xFF7A8A9C)),
+        ),
+      );
+    }
+
+    final stats = _selectedSubjectId != null ? _subjectStats[_selectedSubjectId] : null;
+    final monthlyData = _selectedSubjectId != null ? _monthlyStats[_selectedSubjectId] : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Subject Dropdown
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4F7FB),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: DropdownButton<String>(
+            value: _selectedSubjectId,
+            isExpanded: true,
+            underline: const SizedBox(),
+            icon: const Icon(Icons.arrow_drop_down_rounded, color: Color(0xFF3AA8F7)),
+            items: _subjectMap.entries.map((entry) {
+              final subjectId = entry.key;
+              final subjectName = entry.value;
+              return DropdownMenuItem<String>(
+                value: subjectId,
+                child: Text(
+                  subjectName,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedSubjectId = value;
+                _loadSubjectStats(value!);
+              });
+            },
+          ),
+        ),
+        
+        const SizedBox(height: 20),
+        
+        if (_loadingStats)
+          const Center(
+            child: CircularProgressIndicator(
+              color: Color(0xFF3AA8F7),
+            ),
+          )
+        else if (_migrating)
+          Column(
+            children: [
+              const CircularProgressIndicator(
+                color: Color(0xFF3AA8F7),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Migrating old records...',
+                style: TextStyle(color: Color(0xFF7A8A9C)),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF4F7FB),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  _debugLog,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF7A8A9C),
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
+            ],
+          )
+        else if (stats != null) ...[
+          // Overall Stats Card
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF4F7FB),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  stats['subjectName'] ?? 'Overall Attendance',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Circular Chart
+                if ((stats['totalHeld'] ?? 0) > 0)
+                  _statsChart(stats['totalPercent'] ?? 0)
+                else
+                  Container(
+                    height: 150,
+                    width: 150,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF4F7FB),
+                      borderRadius: BorderRadius.circular(75),
+                      border: Border.all(
+                        color: const Color(0xFFE0E6F0),
+                        width: 8,
+                      ),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'No data',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Color(0xFF7A8A9C),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                
+                const SizedBox(height: 20),
+                
+                // Stats Numbers
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _statItem('Held', stats['totalHeld']?.toString() ?? '0'),
+                    _statItem('Attended', stats['totalAttended']?.toString() ?? '0'),
+                    _statItem('Skipped', 
+                      ((stats['totalHeld'] ?? 0) - (stats['totalAttended'] ?? 0)).toString()),
+                  ],
+                ),
+                
+                const SizedBox(height: 12),
+                
+                // Percentage Display
+                Text(
+                  (stats['totalHeld'] ?? 0) > 0 
+                    ? '${((stats['totalPercent'] ?? 0) * 100).toStringAsFixed(1)}%'
+                    : '0%',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: _statsPercentColor(stats['totalPercent'] ?? 0),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Migration Button (if needed)
+          if ((stats['totalHeld'] ?? 0) == 0)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFFFFB74D)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Text(
+                    'No attendance data found',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: Color(0xFFF57C00),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Run migration to fix old records or mark attendance today.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF7A8A9C),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _migrateOldRecords,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFF9800),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      child: const Text('Fix Old Records (One-time)'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Migration will: 1) Add subject IDs to old records, 2) Create parent documents',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF7A8A9C),
+                      fontStyle: FontStyle.italic,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            )
+          else if (monthlyData != null && monthlyData.isNotEmpty) ...[
+            const Text(
+              'Monthly Breakdown',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            ...monthlyData.entries.map((entry) {
+              final month = entry.key;
+              final data = entry.value;
+              final percent = data['percent'] as double;
+              
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF4F7FB),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          month,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          '${(percent * 100).toStringAsFixed(1)}%',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: data['color'] as Color,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    
+                    // Progress bar
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Stack(
+                          children: [
+                            Container(
+                              height: 8,
+                              width: constraints.maxWidth,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE0E6F0),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                            Container(
+                              height: 8,
+                              width: constraints.maxWidth * percent.clamp(0.0, 1.0),
+                              decoration: BoxDecoration(
+                                color: data['color'] as Color,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                    
+                    const SizedBox(height: 8),
+                    
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${data['attended']}/${data['held']} classes',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF7A8A9C),
+                          ),
+                        ),
+                        Text(
+                          '${data['attended']!}/${data['held']!}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF7A8A9C),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ] else if (!_loadingStats && (stats['totalHeld'] ?? 0) > 0) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF4F7FB),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Column(
+                children: [
+                  Icon(
+                    Icons.bar_chart_rounded,
+                    size: 40,
+                    color: Color(0xFF7A8A9C),
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    'Monthly breakdown will appear\nwhen you have data across multiple months',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFF7A8A9C),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
+  Widget _statsChart(double percent) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final chartSize = min(screenWidth * 0.4, 150.0);
+    final strokeWidth = chartSize * 0.07;
+    final color = _statsPercentColor(percent);
+
+    return CustomPaint(
+      size: Size(chartSize, chartSize),
+      painter: _CirclePainter(percent, color, strokeWidth),
+      child: SizedBox(
+        width: chartSize,
+        height: chartSize,
+        child: Center(
+          child: Text(
+            '${(percent * 100).toStringAsFixed(1)}%',
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _statItem(String label, String value) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF3AA8F7),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Color(0xFF7A8A9C),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // =====================================================
   // CALCULATOR UI
   // =====================================================
 
@@ -442,7 +916,7 @@ class _AttendancePageState extends State<AttendancePage>
   }
 
   // =====================================================
-  // SIMULATION POPUP (FIXED VERSION)
+  // SIMULATION POPUP
   // =====================================================
 
   void _openSimulationDialog() {
@@ -621,6 +1095,7 @@ class _AttendancePageState extends State<AttendancePage>
       onPressed: _calculate,
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFF3AA8F7),
+        foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 14),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
@@ -752,19 +1227,20 @@ class _AttendancePageState extends State<AttendancePage>
 
   Widget _modeToggle() => Row(
     children: [
-      _modeChip('Daily tracking', true),
-      _modeChip('Calculator', false),
+      _modeChip('Daily tracking', 0),
+      _modeChip('Stats', 1),
+      _modeChip('Calculator', 2),
     ],
   );
 
-  Widget _modeChip(String label, bool tracking) => Expanded(
+  Widget _modeChip(String label, int mode) => Expanded(
     child: GestureDetector(
-      onTap: () => setState(() => _trackingMode = tracking),
+      onTap: () => setState(() => _selectedMode = mode),
       child: Container(
         margin: const EdgeInsets.all(4),
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: _trackingMode == tracking
+          color: _selectedMode == mode
               ? const Color(0xFF3AA8F7)
               : const Color(0xFFF4F7FB),
           borderRadius: BorderRadius.circular(16),
@@ -774,7 +1250,7 @@ class _AttendancePageState extends State<AttendancePage>
           label,
           style: TextStyle(
             fontWeight: FontWeight.w600,
-            color: _trackingMode == tracking
+            color: _selectedMode == mode
                 ? Colors.white
                 : const Color(0xFF4C5D73),
           ),
@@ -790,12 +1266,14 @@ class _AttendancePageState extends State<AttendancePage>
 
 class _TodayClass {
   final String classId;
+  final String subjectId;
   final String subjectName;
   final String startTime;
   final String endTime;
 
   _TodayClass({
     required this.classId,
+    required this.subjectId,
     required this.subjectName,
     required this.startTime,
     required this.endTime,
