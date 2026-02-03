@@ -67,10 +67,6 @@ class _AttendancePageState extends State<AttendancePage>
   final Map<String, Map<String, dynamic>> _subjectStats = {};
   final Map<String, Map<String, dynamic>> _monthlyStats = {};
 
-  // ---------------- MIGRATION ----------------
-  bool _migrating = false;
-  String _debugLog = '';
-
   // ---------------- ANIMATION ----------------
   late AnimationController _animController;
   late Animation<double> _percentAnim;
@@ -230,23 +226,6 @@ class _AttendancePageState extends State<AttendancePage>
       subjectId: cls.subjectId,
       toggleOff: toggleOff,
     );
-  }
-
-  // =====================================================
-  // MIGRATION
-  // =====================================================
-
-  Future<void> _migrateOldRecords() async {
-    setState(() => _migrating = true);
-    final log = await _attendanceService.migrateOldRecords();
-    setState(() {
-      _debugLog = log;
-      _migrating = false;
-    });
-
-    if (_selectedSubjectId != null) {
-      _loadSubjectStats(_selectedSubjectId!);
-    }
   }
 
   // =====================================================
@@ -537,36 +516,6 @@ class _AttendancePageState extends State<AttendancePage>
               color: Color(0xFF3AA8F7),
             ),
           )
-        else if (_migrating)
-          Column(
-            children: [
-              const CircularProgressIndicator(
-                color: Color(0xFF3AA8F7),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Migrating old records...',
-                style: TextStyle(color: Color(0xFF7A8A9C)),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF4F7FB),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  _debugLog,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF7A8A9C),
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ),
-            ],
-          )
         else if (stats != null) ...[
           // Overall Stats Card
           Container(
@@ -645,66 +594,7 @@ class _AttendancePageState extends State<AttendancePage>
           
           const SizedBox(height: 20),
           
-          // Migration Button (if needed)
-          if ((stats['totalHeld'] ?? 0) == 0)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF3E0),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFFFFB74D)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Text(
-                    'No attendance data found',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                      color: Color(0xFFF57C00),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Run migration to fix old records or mark attendance today.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF7A8A9C),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _migrateOldRecords,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF9800),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                      ),
-                      child: const Text('Fix Old Records (One-time)'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Migration will: 1) Add subject IDs to old records, 2) Create parent documents',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF7A8A9C),
-                      fontStyle: FontStyle.italic,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            )
-          else if (monthlyData != null && monthlyData.isNotEmpty) ...[
+          if (monthlyData != null && monthlyData.isNotEmpty) ...[
             const Text(
               'Monthly Breakdown',
               style: TextStyle(
@@ -764,7 +654,9 @@ class _AttendancePageState extends State<AttendancePage>
                             ),
                             Container(
                               height: 8,
-                              width: constraints.maxWidth * percent.clamp(0.0, 1.0),
+                              width: percent == 0
+                                  ? constraints.maxWidth   // full red bar
+                                  : constraints.maxWidth * percent.clamp(0.0, 1.0),
                               decoration: BoxDecoration(
                                 color: data['color'] as Color,
                                 borderRadius: BorderRadius.circular(4),
@@ -1175,10 +1067,10 @@ class _AttendancePageState extends State<AttendancePage>
                   : const Color(0xFFE0E6F0),
             ),
           ),
-          child: Text(
-            count == 0 ? day.substring(0, 3) : '${day.substring(0, 3)} × $count',
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
+      child: Text(
+        count == 0 ? day.substring(0, 3) : '${day.substring(0, 3)} × $count',
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
         ),
       );
     }).toList(),
@@ -1303,11 +1195,22 @@ class _CirclePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
+    final clamped = percent.clamp(0.0, 1.0);
+
+    // Always draw background ring first
     canvas.drawCircle(center, radius, bgPaint);
+
+    // 🔴 SPECIAL CASE: 0% attendance → full red circle
+    if (clamped == 0) {
+      canvas.drawCircle(center, radius, fgPaint);
+      return;
+    }
+
+    // Normal progress arc (your original logic)
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
       -pi / 2,
-      2 * pi * percent.clamp(0.0, 1.0),
+      2 * pi * clamped,
       false,
       fgPaint,
     );

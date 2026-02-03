@@ -686,7 +686,8 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
-              _urgencyChip(a),
+              if (a.status != AssignmentStatus.submitted)
+                _urgencyChip(a),
             ],
           ),
           const SizedBox(height: 6),
@@ -1096,6 +1097,7 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
   void _openAddSheet() {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1130,6 +1132,7 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
   final TextEditingController _descriptionController = TextEditingController();
   String? _selectedSubject;
   DateTime? _dueDate;
+  String? _errorText;
 
   Widget _dueDatePicker(BuildContext context) {
     return GestureDetector(
@@ -1142,7 +1145,10 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
         );
 
         if (picked != null) {
-          setState(() => _dueDate = picked);
+          setState(() {
+            _dueDate = picked;
+            _errorText = null;
+          });
         }
       },
       child: Container(
@@ -1180,12 +1186,9 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
 
   Future<void> _submitAssignment() async {
     if (_selectedSubject == null || _dueDate == null || _titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill all fields'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      setState(() {
+        _errorText = 'Please fill all required fields';
+      });
       return;
     }
 
@@ -1212,12 +1215,9 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
       );
     } catch (e) {
       print('Error adding assignment: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to add assignment: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      setState(() {
+        _errorText = 'Failed to add assignment: $e';
+      });
     }
   }
 
@@ -1265,6 +1265,7 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
 
           TextField(
             controller: _titleController,
+            onChanged: (value) => setState(() => _errorText = null),
             decoration: InputDecoration(
               labelText: 'Title',
               filled: true,
@@ -1300,6 +1301,12 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
                 )
               : DropdownButtonFormField<String>(
                   value: _selectedSubject,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedSubject = value;
+                      _errorText = null;
+                    });
+                  },
                   items: [
                     const DropdownMenuItem(
                       value: null,
@@ -1312,9 +1319,6 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
                       );
                     }),
                   ],
-                  onChanged: (value) {
-                    setState(() => _selectedSubject = value);
-                  },
                   decoration: InputDecoration(
                     labelText: 'Subject',
                     filled: true,
@@ -1331,6 +1335,7 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
           const SizedBox(height: 12),
           TextField(
             controller: _descriptionController,
+            onChanged: (value) => setState(() => _errorText = null),
             maxLines: 3,
             decoration: InputDecoration(
               labelText: 'Description',
@@ -1342,6 +1347,35 @@ class _AddAssignmentSheetState extends State<_AddAssignmentSheet> {
               ),
             ),
           ),
+
+          if (_errorText != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.red),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _errorText!,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
 
           const SizedBox(height: 20),
           SizedBox(

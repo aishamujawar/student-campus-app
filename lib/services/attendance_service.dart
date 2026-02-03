@@ -14,7 +14,9 @@ class AttendanceService {
 
   Future<AttendanceDayResult> loadDay(DateTime selectedDate) async {
     final weekdayIndex = selectedDate.weekday - 1;
+    final dateKey = DateFormat('yyyy-MM-dd').format(selectedDate);
 
+    // Load timetable rows
     final rowsSnap = await _firestore
         .collection('users')
         .doc(_uid)
@@ -26,6 +28,7 @@ class AttendanceService {
       return AttendanceDayResult.timetableMissing();
     }
 
+    // Load timetable cells for this weekday
     final cellsSnap = await _firestore
         .collection('users')
         .doc(_uid)
@@ -38,7 +41,9 @@ class AttendanceService {
       return AttendanceDayResult.noClasses();
     }
 
+    // Build TodayClass list
     final List<TodayClass> classes = [];
+    final Set<String> seenClassIds = {};
 
     for (final cell in cellsSnap.docs) {
       final row = rowsSnap.docs.firstWhere(
@@ -48,7 +53,9 @@ class AttendanceService {
       final classId =
           '${cell['subjectId']}_${cell['rowIndex']}_${cell['dayIndex']}';
 
-      if (classes.any((c) => c.classId == classId)) continue;
+      // Avoid duplicates
+      if (seenClassIds.contains(classId)) continue;
+      seenClassIds.add(classId);
 
       classes.add(
         TodayClass(
@@ -61,13 +68,13 @@ class AttendanceService {
       );
     }
 
+    // Sort by start time
     classes.sort((a, b) => a.startTime.compareTo(b.startTime));
 
-    final dateKey = DateFormat('yyyy-MM-dd').format(selectedDate);
+    // Load attendance for this day
     final Map<String, String> attendance = {};
-
     try {
-      final snap = await _firestore
+      final attendanceSnap = await _firestore
           .collection('users')
           .doc(_uid)
           .collection('attendance')
@@ -75,10 +82,12 @@ class AttendanceService {
           .collection('records')
           .get();
 
-      for (final d in snap.docs) {
-        attendance[d.id] = d['status'];
+      for (final doc in attendanceSnap.docs) {
+        attendance[doc.id] = doc['status'];
       }
-    } catch (_) {}
+    } catch (e) {
+      // No attendance data for this day is normal
+    }
 
     return AttendanceDayResult.success(classes, attendance);
   }
@@ -116,6 +125,7 @@ class AttendanceService {
     final now = DateTime.now();
     final year = now.year;
 
+    // Initialize monthly tracking
     final Map<String, Map<String, int>> months = {
       for (int i = 1; i <= 12; i++)
         DateFormat('MMM').format(DateTime(year, i)): {
@@ -127,39 +137,51 @@ class AttendanceService {
     int totalHeld = 0;
     int totalAttended = 0;
 
-    final days = await _firestore
+    // Load all attendance days
+    final daysSnapshot = await _firestore
         .collection('users')
         .doc(_uid)
         .collection('attendance')
         .get();
 
-    for (final day in days.docs) {
-      final records = await day.reference.collection('records').get();
+    // Process each day
+    for (final dayDoc in daysSnapshot.docs) {
+      final recordsSnapshot = await dayDoc.reference.collection('records').get();
 
-      for (final r in records.docs) {
-        final data = r.data();
+      for (final recordDoc in recordsSnapshot.docs) {
+        final data = recordDoc.data();
+        
+        // Filter by subject
         if (data['subjectId'] != subjectId) continue;
+        
+        // Skip cancelled classes
         if (data['status'] == 'cancelled') continue;
 
         totalHeld++;
 
-        final parts = day.id.split('-');
-        final date = parts.length == 3
-            ? DateTime(
-                int.parse(parts[0]),
-                int.parse(parts[1]),
-                int.parse(parts[2]),
-              )
-            : DateTime.now();
+        // Parse date for monthly grouping
+        final parts = dayDoc.id.split('-');
+        if (parts.length != 3) continue;
 
-        final month = DateFormat('MMM').format(date);
-        months[month]!['held'] =
-            (months[month]!['held'] ?? 0) + 1;
+        try {
+          final date = DateTime(
+            int.parse(parts[0]),
+            int.parse(parts[1]),
+            int.parse(parts[2]),
+          );
+          
+          final month = DateFormat('MMM').format(date);
+          
+          // Update monthly counts
+          months[month]!['held'] = (months[month]!['held'] ?? 0) + 1;
 
-        if (data['status'] == 'present') {
-          totalAttended++;
-          months[month]!['attended'] =
-              (months[month]!['attended'] ?? 0) + 1;
+          if (data['status'] == 'present') {
+            totalAttended++;
+            months[month]!['attended'] = (months[month]!['attended'] ?? 0) + 1;
+          }
+        } catch (e) {
+          // Skip invalid dates
+          continue;
         }
       }
     }
@@ -172,7 +194,7 @@ class AttendanceService {
   }
 
   // =====================================================
-  // MARK ATTENDANCE
+  // MARK ATTENDANCE (FIXED - ensures parent doc exists)
   // =====================================================
 
   Future<void> markAttendance({
@@ -183,34 +205,36 @@ class AttendanceService {
     bool toggleOff = false,
   }) async {
     final dateKey = DateFormat('yyyy-MM-dd').format(date);
+    final attendanceRef = _firestore
+        .collection('users')
+        .doc(_uid)
+        .collection('attendance')
+        .doc(dateKey);
 
     if (toggleOff) {
-      await _firestore
-          .collection('users')
-          .doc(_uid)
-          .collection('attendance')
-          .doc(dateKey)
+      // Just delete the record
+      await attendanceRef
           .collection('records')
           .doc(classId)
           .delete();
+      
+      // Optional: Check if day is now empty and delete parent
+      final recordsSnap = await attendanceRef.collection('records').get();
+      if (recordsSnap.docs.isEmpty) {
+        await attendanceRef.delete();
+      }
+      
       return;
     }
 
-    await _firestore
-        .collection('users')
-        .doc(_uid)
-        .collection('attendance')
-        .doc(dateKey)
-        .set({
-          'date': dateKey,
-          'createdAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+    // ✅ CRITICAL: Ensure parent document exists
+    await attendanceRef.set({
+      'date': dateKey,
+      'createdAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
 
-    await _firestore
-        .collection('users')
-        .doc(_uid)
-        .collection('attendance')
-        .doc(dateKey)
+    // Save the attendance record
+    await attendanceRef
         .collection('records')
         .doc(classId)
         .set({
@@ -221,50 +245,40 @@ class AttendanceService {
   }
 
   // =====================================================
-  // MIGRATION
+  // DELETE ALL ATTENDANCE (CLEAN VERSION)
   // =====================================================
 
-  Future<String> migrateOldRecords() async {
-    String log = 'Starting migration...\n';
-
-    final days = await _firestore
+  Future<void> deleteAllAttendance() async {
+    final attendanceRef = _firestore
         .collection('users')
         .doc(_uid)
-        .collection('attendance')
-        .get();
+        .collection('attendance');
 
-    for (final day in days.docs) {
-      await day.reference.set({
-        'date': day.id,
-        'migrated': true,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+    final daysSnapshot = await attendanceRef.get();
 
-      final records = await day.reference.collection('records').get();
+    int totalDaysDeleted = 0;
+    int totalRecordsDeleted = 0;
 
-      for (final r in records.docs) {
-        if (r.data()['subjectId'] != null) continue;
-
-        final parts = r.id.split('_');
-        if (parts.length < 3) continue;
-
-        final subjectId =
-            parts.sublist(0, parts.length - 2).join('_');
-
-        await r.reference.update({
-          'subjectId': subjectId,
-          'migratedAt': FieldValue.serverTimestamp(),
-        });
+    for (final dayDoc in daysSnapshot.docs) {
+      // Delete all records in the day
+      final recordsSnapshot = await dayDoc.reference.collection('records').get();
+      totalRecordsDeleted += recordsSnapshot.docs.length;
+      
+      for (final recordDoc in recordsSnapshot.docs) {
+        await recordDoc.reference.delete();
       }
+
+      // Delete the day document
+      await dayDoc.reference.delete();
+      totalDaysDeleted++;
     }
 
-    log += 'Migration complete.\n';
-    return log;
+    print('✅ Deleted $totalDaysDeleted days with $totalRecordsDeleted records');
   }
 }
 
 // =====================================================
-// MODELS
+// DATA MODELS
 // =====================================================
 
 class TodayClass {
@@ -297,14 +311,14 @@ class AttendanceDayResult {
   });
 
   factory AttendanceDayResult.success(
-    List<TodayClass> c,
-    Map<String, String> a,
+    List<TodayClass> classes,
+    Map<String, String> attendance,
   ) =>
       AttendanceDayResult._(
         timetableMissing: false,
         noClasses: false,
-        classes: c,
-        attendance: a,
+        classes: classes,
+        attendance: attendance,
       );
 
   factory AttendanceDayResult.noClasses() =>
