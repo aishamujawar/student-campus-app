@@ -14,9 +14,7 @@ class SmartBudgetingScreen extends StatelessWidget {
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: constraints.maxHeight,
-              ),
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
               child: Center(
                 child: FractionallySizedBox(
                   widthFactor: 0.9,
@@ -36,7 +34,6 @@ class SmartBudgetingScreen extends StatelessWidget {
                         ],
                       ),
                       child: Column(
-                        mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildHeader(theme),
@@ -49,26 +46,28 @@ class SmartBudgetingScreen extends StatelessWidget {
 
                           const SizedBox(height: 24),
 
-                          /// Personal Expenses
+                          /// 🔹 Personal Expenses (✅ FIXED ROUTE)
                           BudgetOptionCard(
                             title: 'Personal Expenses',
                             subtitle: 'Track your own spending',
                             icon: Icons.person_rounded,
                             color: const Color(0xFF4B6BFF),
-                            onTap: () =>
-                                Get.toNamed('/personal-expenses'),
+                            onTap: () {
+                              Get.toNamed('/personal-dashboard');
+                            },
                           ),
 
                           const SizedBox(height: 16),
 
-                          /// Shared Expenses
+                          /// 🔹 Shared Expenses
                           BudgetOptionCard(
                             title: 'Shared Expenses',
                             subtitle: 'Split bills with friends',
                             icon: Icons.group_rounded,
                             color: const Color(0xFF2BB673),
-                            onTap: () =>
-                                Get.toNamed('/shared-expenses'),
+                            onTap: () {
+                              Get.toNamed('/shared-expenses');
+                            },
                           ),
                         ],
                       ),
@@ -83,7 +82,7 @@ class SmartBudgetingScreen extends StatelessWidget {
     );
   }
 
-  /// 🔹 Header (same language as Home)
+  /// 🔹 Header
   Widget _buildHeader(ThemeData theme) {
     return Row(
       children: [
@@ -118,7 +117,7 @@ class SmartBudgetingScreen extends StatelessWidget {
   }
 }
 
-/// 🔹 Budget option card (Home-style, clean & professional)
+/// 🔹 Budget option card
 class BudgetOptionCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -153,11 +152,7 @@ class BudgetOptionCard extends StatelessWidget {
                   color: color.withOpacity(0.14),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 26,
-                ),
+                child: Icon(icon, color: color, size: 26),
               ),
               const SizedBox(width: 16),
               Expanded(

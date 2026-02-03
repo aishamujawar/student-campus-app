@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -10,17 +12,23 @@ class ExpenseController extends GetxController {
 
   final RxList<ExpenseModel> expenses = <ExpenseModel>[].obs;
 
+  StreamSubscription<QuerySnapshot>? _expenseListener;
+
   // ───────────────────────── FETCH EXPENSES ─────────────────────────
 
-  Future<void> fetchExpenses(String groupId) async {
-    final snapshot = await _db
+  void fetchExpenses(String groupId) {
+    _expenseListener?.cancel();
+
+    _expenseListener = _db
         .collection('groups')
         .doc(groupId)
         .collection('expenses')
         .orderBy('createdAt', descending: true)
-        .get();
-
-    expenses.value = snapshot.docs.map((e) => ExpenseModel.fromDoc(e)).toList();
+        .snapshots()
+        .listen((snapshot) {
+      expenses.value =
+          snapshot.docs.map((e) => ExpenseModel.fromDoc(e)).toList();
+    });
   }
 
   // ───────────────────────── ADD EXPENSE ─────────────────────────
@@ -29,104 +37,66 @@ class ExpenseController extends GetxController {
     required String groupId,
     required String title,
     required double amount,
+    DateTime? createdAt, // ✅ ADDED
   }) async {
     final user = _auth.currentUser;
-    if (user == null) throw Exception('User not logged in');
+    if (user == null) return;
 
     await _db.collection('groups').doc(groupId).collection('expenses').add({
       'title': title,
       'amount': amount,
       'paidBy': user.uid,
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': createdAt != null
+          ? Timestamp.fromDate(createdAt) // ✅ user-selected date
+          : FieldValue.serverTimestamp(), // fallback
     });
-
-    await fetchExpenses(groupId);
   }
 
   // ───────────────────────── BALANCE CALCULATION ─────────────────────────
-  // balance > 0 → user should receive
-  // balance < 0 → user owes
 
-  Map<String, double> calculateBalances(List<String> members) {
+  Map<String, double> calculateBalances({
+    required List<String> members,
+    required DateTime? lastSettledAt,
+  }) {
     final Map<String, double> balances = {
       for (final m in members) m: 0.0,
     };
 
-    if (members.isEmpty || expenses.isEmpty) return balances;
+    if (expenses.isEmpty || members.isEmpty) return balances;
 
-    for (final expense in expenses) {
-      final splitAmount = expense.amount / members.length;
+    final List<ExpenseModel> filteredExpenses = lastSettledAt == null
+        ? expenses.toList()
+        : expenses.where((e) {
+            if (e.createdAt == null) return false;
+            return e.createdAt!.isAfter(lastSettledAt);
+          }).toList();
 
-      // Everyone owes their equal share
-      for (final memberId in members) {
-        balances[memberId] = balances[memberId]! - splitAmount;
+    for (final expense in filteredExpenses) {
+      final double split = expense.amount / members.length;
+
+      for (final member in members) {
+        balances[member] = balances[member]! - split;
       }
 
-      // Payer gets credited full amount
-      balances[expense.paidBy] = balances[expense.paidBy]! + expense.amount;
+      if (balances.containsKey(expense.paidBy)) {
+        balances[expense.paidBy] = balances[expense.paidBy]! + expense.amount;
+      }
     }
 
     return balances;
   }
 
-  // ───────────────────────── SETTLE UP LOGIC ─────────────────────────
-  // Returns clear instructions like:
-  // Pay ₹300 to userX
-  // Receive ₹150 from userY
+  // ───────────────────────── SETTLE GROUP ─────────────────────────
 
-  List<Map<String, dynamic>> getSettlementSuggestions({
-    required String currentUserId,
-    required List<String> members,
-  }) {
-    final balances = calculateBalances(members);
-    final List<Map<String, dynamic>> settlements = [];
+  Future<void> settleGroup(String groupId) async {
+    await _db.collection('groups').doc(groupId).update({
+      'lastSettledAt': FieldValue.serverTimestamp(),
+    });
+  }
 
-    if (!balances.containsKey(currentUserId)) return settlements;
-
-    final currentBalance = balances[currentUserId]!;
-
-    // Already settled
-    if (currentBalance == 0) return settlements;
-
-    if (currentBalance < 0) {
-      // YOU OWE OTHERS
-      double remaining = currentBalance.abs();
-
-      for (final entry in balances.entries) {
-        if (entry.key == currentUserId) continue;
-
-        if (entry.value > 0 && remaining > 0) {
-          final amount = entry.value >= remaining ? remaining : entry.value;
-
-          settlements.add({
-            'to': entry.key,
-            'amount': amount,
-          });
-
-          remaining -= amount;
-        }
-      }
-    } else {
-      // OTHERS OWE YOU
-      double remaining = currentBalance;
-
-      for (final entry in balances.entries) {
-        if (entry.key == currentUserId) continue;
-
-        if (entry.value < 0 && remaining > 0) {
-          final amount =
-              entry.value.abs() >= remaining ? remaining : entry.value.abs();
-
-          settlements.add({
-            'from': entry.key,
-            'amount': amount,
-          });
-
-          remaining -= amount;
-        }
-      }
-    }
-
-    return settlements;
+  @override
+  void onClose() {
+    _expenseListener?.cancel();
+    super.onClose();
   }
 }

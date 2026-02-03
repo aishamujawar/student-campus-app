@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -39,16 +38,16 @@ class GroupController extends GetxController {
         .collection('groups')
         .where('members', arrayContains: uid)
         .snapshots()
-        .listen(
-      (snapshot) {
-        groups.value = snapshot.docs.map((doc) {
+        .listen((snapshot) {
+      groups.assignAll(
+        snapshot.docs.map((doc) {
           return {
             'id': doc.id,
             ...doc.data(),
           };
-        }).toList();
-      },
-    );
+        }).toList(),
+      );
+    });
   }
 
   // ───────────────────────── USER LOOKUP ─────────────────────────
@@ -77,9 +76,7 @@ class GroupController extends GetxController {
       return;
     }
 
-    final alreadyAdded = selectedMembers.any((m) => m['uid'] == user['uid']);
-
-    if (alreadyAdded) {
+    if (selectedMembers.any((m) => m['uid'] == user['uid'])) {
       Get.snackbar('Info', 'User already added');
       return;
     }
@@ -120,7 +117,10 @@ class GroupController extends GetxController {
 
   Future<void> addMemberToGroup(String groupId, String email) async {
     final user = await _fetchUserByEmail(email);
-    if (user == null) return;
+    if (user == null) {
+      Get.snackbar('Error', 'User not found');
+      return;
+    }
 
     final ref = _firestore.collection('groups').doc(groupId);
     final snap = await ref.get();
