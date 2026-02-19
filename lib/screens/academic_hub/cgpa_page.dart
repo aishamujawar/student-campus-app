@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/cgpa_service.dart';
 
 // ============ TOP-LEVEL CLASSES ============
@@ -166,9 +167,23 @@ class _CgpaPageState extends State<CgpaPage> {
   @override
   void initState() {
     super.initState();
-    // Initialize with stored preference or default to 6
-    _persistedSemesterChoice = 6;
-    _initializeData();
+    _loadSemesterChoice().then((value) {
+      setState(() {
+        _persistedSemesterChoice = value;
+        _maxSemesters = value;
+      });
+      _initializeData();
+    });
+  }
+
+  Future<void> _saveSemesterChoice(int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('cgpa_semester_limit', value);
+  }
+
+  Future<int> _loadSemesterChoice() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('cgpa_semester_limit') ?? 6; // Default to 6
   }
 
   Future<void> _initializeData() async {
@@ -177,7 +192,6 @@ class _CgpaPageState extends State<CgpaPage> {
     try {
       // Load persisted semester choice - in a real app, you'd use SharedPreferences
       // For now, we'll keep it in memory and it will persist during the session
-      _maxSemesters = _persistedSemesterChoice;
       
       // Load archived semesters from Firestore
       final semestersData = await _cgpaService.loadArchivedSemesters();
@@ -318,6 +332,11 @@ class _CgpaPageState extends State<CgpaPage> {
     // Calculate total for percentages
     final total = allGrades.length;
     
+    // Split sortedEntries into two columns for the legend
+    final middleIndex = (sortedEntries.length / 2).ceil();
+    final firstColumn = sortedEntries.sublist(0, middleIndex);
+    final secondColumn = sortedEntries.sublist(middleIndex);
+    
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -345,72 +364,160 @@ class _CgpaPageState extends State<CgpaPage> {
             ),
           ),
           const SizedBox(height: 20),
-          SizedBox(
-            height: 200,
-            child: PieChart(
-              PieChartData(
-                sectionsSpace: 2,
-                centerSpaceRadius: 50,
-                sections: sortedEntries.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final e = entry.value;
-                  
-                  return PieChartSectionData(
-                    value: e.value.toDouble(),
-                    title: e.key, // Only show grade letter, no percentage
-                    radius: 65,
-                    color: ProfessionalPalette.chartPalette[index % ProfessionalPalette.chartPalette.length],
-                    titleStyle: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Pie Chart - left side
+              Expanded(
+                child: SizedBox(
+                  height: 200,
+                  child: PieChart(
+                    PieChartData(
+                      sectionsSpace: 2,
+                      centerSpaceRadius: 50,
+                      sections: sortedEntries.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final e = entry.value;
+                        
+                        return PieChartSectionData(
+                          value: e.value.toDouble(),
+                          title: e.key, // Only show grade letter, no percentage
+                          radius: 65,
+                          color: ProfessionalPalette.chartPalette[index % ProfessionalPalette.chartPalette.length],
+                          titleStyle: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        );
+                      }).toList(),
                     ),
-                  );
-                }).toList(),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 20),
+              // Legend with percentages - now on the right in two columns
+              Expanded(
+                child: Container(
+                  height: 200, // Match the pie chart height
+                  child: SingleChildScrollView(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // First column
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: firstColumn.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final e = entry.value;
+                              final percent = (e.value / total) * 100;
+                              final originalIndex = sortedEntries.indexOf(e);
+                              
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 12,
+                                      height: 12,
+                                      decoration: BoxDecoration(
+                                        color: ProfessionalPalette.chartPalette[originalIndex % ProfessionalPalette.chartPalette.length],
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            e.key,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          Text(
+                                            '${percent.toStringAsFixed(0)}% (${e.value})',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: ProfessionalPalette.cgTextMuted,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                        // Spacing between columns
+                        const SizedBox(width: 16),
+                        // Second column
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: secondColumn.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final e = entry.value;
+                              final percent = (e.value / total) * 100;
+                              final originalIndex = sortedEntries.indexOf(e);
+                              
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 12,
+                                      height: 12,
+                                      decoration: BoxDecoration(
+                                        color: ProfessionalPalette.chartPalette[originalIndex % ProfessionalPalette.chartPalette.length],
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            e.key,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          Text(
+                                            '${percent.toStringAsFixed(0)}% (${e.value})',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: ProfessionalPalette.cgTextMuted,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          // Legend with percentages
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            children: sortedEntries.asMap().entries.map((entry) {
-              final index = entry.key;
-              final e = entry.value;
-              final percent = (e.value / total) * 100;
-              
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: ProfessionalPalette.chartPalette[index % ProfessionalPalette.chartPalette.length],
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    e.key,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(width: 2),
-                  Text(
-                    '(${percent.toStringAsFixed(0)}%)',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: ProfessionalPalette.cgTextMuted,
-                    ),
-                  ),
-                ],
-              );
-            }).toList(),
-          ),
+          const SizedBox(height: 25), 
         ],
       ),
     );
@@ -443,6 +550,10 @@ class _CgpaPageState extends State<CgpaPage> {
     // Find min and max for scaling
     final minSgpa = sgpValues.reduce((a, b) => a < b ? a : b);
     final maxSgpa = sgpValues.reduce((a, b) => a > b ? a : b);
+    
+    // Calculate clean Y-axis range
+    final yMin = (minSgpa.floor() - 1).clamp(0, 10);
+    final yMax = (maxSgpa.ceil() + 1).clamp(0, 10);
     
     return Container(
       padding: const EdgeInsets.all(18),
@@ -501,7 +612,10 @@ class _CgpaPageState extends State<CgpaPage> {
                       reservedSize: 30,
                       interval: 1,
                       getTitlesWidget: (value, meta) {
-                        if (value.toInt() <= semNumbers.length && value.toInt() >= 1) {
+                        // Fix: Only show titles for actual semester values
+                        if (value.toInt() <= semNumbers.length && 
+                            value.toInt() >= 1 &&
+                            semNumbers.contains(value)) {
                           return Text(
                             'Sem ${value.toInt()}',
                             style: TextStyle(
@@ -517,13 +631,15 @@ class _CgpaPageState extends State<CgpaPage> {
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 40,
                       interval: 1,
+                      reservedSize: 36,
                       getTitlesWidget: (value, meta) {
+                        if (value % 1 != 0) return const SizedBox();
                         return Text(
-                          value.toStringAsFixed(1),
+                          value.toInt().toString(),
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w300,
                             color: ProfessionalPalette.cgTextMuted,
                           ),
                         );
@@ -540,8 +656,8 @@ class _CgpaPageState extends State<CgpaPage> {
                 ),
                 minX: semNumbers.first - 0.5,
                 maxX: semNumbers.last + 0.5,
-                minY: (minSgpa - 1).clamp(0, 10),
-                maxY: (maxSgpa + 1).clamp(0, 10),
+                minY: yMin.toDouble(),
+                maxY: yMax.toDouble(),
                 lineBarsData: [
                   LineChartBarData(
                     spots: semNumbers.asMap().entries.map((entry) {
@@ -553,13 +669,40 @@ class _CgpaPageState extends State<CgpaPage> {
                     color: ProfessionalPalette.cgPrimary,
                     barWidth: 3,
                     isStrokeCapRound: true,
-                    dotData: const FlDotData(show: true),
+                    dotData: FlDotData(
+                      show: true,
+                      getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+                        radius: 4,
+                        color: ProfessionalPalette.cgPrimary,
+                        strokeWidth: 1,
+                        strokeColor: Colors.white,
+                      ),
+                    ),
                     belowBarData: BarAreaData(
                       show: true,
                       color: ProfessionalPalette.cgPrimary.withOpacity(0.1),
                     ),
                   ),
                 ],
+                // 👇 ADDED lineTouchData for formatted tooltips
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (LineBarSpot touchedSpot) {
+                      return ProfessionalPalette.cgPrimary.withOpacity(0.9);
+                    },
+                    getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
+                      return touchedBarSpots.map((barSpot) {
+                        return LineTooltipItem(
+                          '${barSpot.y.toStringAsFixed(2)}',
+                          const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        );
+                      }).toList();
+                    },
+                  ),
+                ),
               ),
             ),
           ),
@@ -818,20 +961,22 @@ class _CgpaPageState extends State<CgpaPage> {
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: () {
+                    onTap: () async {
                       setState(() {
                         _maxSemesters = 6;
                         _persistedSemesterChoice = 6;
-                        // Save to persistent storage (in a real app, use SharedPreferences)
-                        // For now, we're just updating the in-memory variable
-                        if (_activeSemesterNumber != null && 
-                            _activeSemesterNumber! > _maxSemesters) {
+                      });
+                      await _saveSemesterChoice(6); // ✅ SAVES PERSISTENTLY
+                      
+                      if (_activeSemesterNumber != null && 
+                          _activeSemesterNumber! > _maxSemesters) {
+                        setState(() {
                           _activeSemesterNumber = 
                               _currentSemesterNumber <= _maxSemesters 
                                   ? _currentSemesterNumber 
                                   : null;
-                        }
-                      });
+                        });
+                      }
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -854,17 +999,19 @@ class _CgpaPageState extends State<CgpaPage> {
                     ),
                   ),
                   GestureDetector(
-                    onTap: () {
+                    onTap: () async {
                       setState(() {
                         _maxSemesters = 8;
                         _persistedSemesterChoice = 8;
-                        // Save to persistent storage (in a real app, use SharedPreferences)
-                        // For now, we're just updating the in-memory variable
-                        if (_activeSemesterNumber == null && 
-                            _currentSemesterNumber <= _maxSemesters) {
-                          _activeSemesterNumber = _currentSemesterNumber;
-                        }
                       });
+                      await _saveSemesterChoice(8); // ✅ SAVES PERSISTENTLY
+                      
+                      if (_activeSemesterNumber == null && 
+                          _currentSemesterNumber <= _maxSemesters) {
+                        setState(() {
+                          _activeSemesterNumber = _currentSemesterNumber;
+                        });
+                      }
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -891,7 +1038,7 @@ class _CgpaPageState extends State<CgpaPage> {
             ),
           ],
         ),
-      );
+      );    
 
   // ============ SEMESTERS MODE ============
   Widget _semestersMode() {
@@ -1836,7 +1983,7 @@ class _CgpaPageState extends State<CgpaPage> {
     }
     
     final strongSubjects = gradeMap.entries
-      .where((e) => e.value.every((g) => ['AA', 'AB'].contains(g)))
+      .where((e) => e.value.every((g) => ['OS', 'AA', 'AB'].contains(g)))
       .map((e) => e.key)
       .toList();
     

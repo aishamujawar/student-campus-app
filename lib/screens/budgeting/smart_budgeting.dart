@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:student_campus_app/screens/budgeting/personal_expenses/screens/personal_expenses_page.dart';
+import 'package:student_campus_app/screens/budgeting/shared_expenses/groups_list_screen.dart';
 
 class SmartBudgetingScreen extends StatelessWidget {
   const SmartBudgetingScreen({super.key});
@@ -46,14 +48,20 @@ class SmartBudgetingScreen extends StatelessWidget {
 
                           const SizedBox(height: 24),
 
-                          /// 🔹 Personal Expenses (✅ FIXED ROUTE)
+                          /// 🔹 Personal Expenses (✅ FIXED ROUTE - UPDATED)
                           BudgetOptionCard(
                             title: 'Personal Expenses',
                             subtitle: 'Track your own spending',
                             icon: Icons.person_rounded,
                             color: const Color(0xFF4B6BFF),
                             onTap: () {
-                              Get.toNamed('/personal-dashboard');
+                              // CHANGED FROM Get.toNamed TO Navigator.push
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const PersonalExpensesPage(),
+                                ),
+                              );
                             },
                           ),
 
@@ -66,7 +74,11 @@ class SmartBudgetingScreen extends StatelessWidget {
                             icon: Icons.group_rounded,
                             color: const Color(0xFF2BB673),
                             onTap: () {
-                              Get.toNamed('/shared-expenses');
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const GroupsListPage(),
+                                ),
+                              );
                             },
                           ),
                         ],

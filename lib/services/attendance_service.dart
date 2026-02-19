@@ -275,6 +275,74 @@ class AttendanceService {
 
     print('✅ Deleted $totalDaysDeleted days with $totalRecordsDeleted records');
   }
+
+  // =====================================================
+  // CHATBOT SUMMARY (🔥 NEW – READ ONLY)
+  // =====================================================
+
+  Future<Map<String, dynamic>> getAttendanceSummary() async {
+    final subjects = await loadSubjects(); // subjectId → name
+    final Map<String, Map<String, int>> subjectCounts = {};
+
+    int totalHeld = 0;
+    int totalAttended = 0;
+
+    final daysSnapshot = await _firestore
+        .collection('users')
+        .doc(_uid)
+        .collection('attendance')
+        .get();
+
+    for (final dayDoc in daysSnapshot.docs) {
+      final records = await dayDoc.reference.collection('records').get();
+
+      for (final rec in records.docs) {
+        final data = rec.data();
+        final subjectId = data['subjectId'];
+        final status = data['status'];
+
+        if (status == 'cancelled') continue;
+
+        subjectCounts.putIfAbsent(subjectId, () => {
+              'held': 0,
+              'attended': 0,
+            });
+
+        subjectCounts[subjectId]!['held'] =
+            subjectCounts[subjectId]!['held']! + 1;
+        totalHeld++;
+
+        if (status == 'present') {
+          subjectCounts[subjectId]!['attended'] =
+              subjectCounts[subjectId]!['attended']! + 1;
+          totalAttended++;
+        }
+      }
+    }
+
+    final Map<String, dynamic> subjectsSummary = {};
+
+    subjectCounts.forEach((subjectId, counts) {
+      final name = subjects[subjectId] ?? 'Unknown';
+      final held = counts['held']!;
+      final attended = counts['attended']!;
+      final percent = held == 0 ? 0 : (attended / held * 100).round();
+
+      subjectsSummary[name] = {
+        'held': held,
+        'attended': attended,
+        'percentage': percent,
+      };
+    });
+
+    return {
+      'totalHeld': totalHeld,
+      'totalAttended': totalAttended,
+      'percentage':
+          totalHeld == 0 ? 0 : (totalAttended / totalHeld * 100).round(),
+      'subjects': subjectsSummary,
+    };
+  }
 }
 
 // =====================================================

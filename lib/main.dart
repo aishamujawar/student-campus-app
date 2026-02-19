@@ -1,26 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:student_campus_app/controllers/forgot_password_controller.dart';
-import 'package:student_campus_app/controllers/login_controller.dart';
-import 'package:student_campus_app/controllers/profile_controller.dart';
-import 'package:student_campus_app/controllers/signup_controller.dart';
+import 'package:student_campus_app/screens/budgeting/shared_expenses/controllers/expense_controller.dart';
 
 import 'firebase_options.dart';
 
-// 🔐 Repository
+// 🔐 Repositories
 import 'repository/authentication_repository.dart';
 
-// 🤝 Controllers
+// 🔐 Controllers
 import 'controllers/main_shell_controller.dart';
+import 'controllers/login_controller.dart';
+import 'controllers/signup_controller.dart';
+import 'controllers/forgot_password_controller.dart';
+import 'controllers/profile_controller.dart';
+
+// 💰 Budgeting Controllers
+import 'screens/budgeting/personal_expenses/controllers/personal_expense_controller.dart';
 import 'screens/budgeting/shared_expenses/controllers/group_controller.dart';
 
-// 🔐 Auth & Splash
+// 🔐 Auth Screens
 import 'screens/auth/splash_screen.dart';
+import 'screens/auth/welcome_screen.dart';
 import 'screens/auth/auth_login_screen.dart';
 import 'screens/auth/auth_signup_screen.dart';
 import 'screens/auth/forgot_password_screen.dart';
-import 'screens/auth/welcome_screen.dart';
 import 'screens/auth/verify_email_screen.dart';
 
 // 🏠 Core Screens
@@ -31,14 +35,8 @@ import 'screens/budgeting/smart_budgeting.dart';
 import 'screens/payments/campuspay_scanner.dart';
 import 'screens/home/profile_page.dart';
 
-// 💰 Budgeting
-import 'screens/budgeting/personal_expenses_screen.dart';
-import 'screens/budgeting/shared_expenses/shared_expenses_screen.dart';
-
-// 🤝 Shared Expenses
-import 'screens/budgeting/shared_expenses/groups_list_screen.dart';
-import 'screens/budgeting/shared_expenses/create_group_screen.dart';
-import 'screens/budgeting/shared_expenses/group_detail_screen.dart';
+// 📅 Timetable Screen (NO CONTROLLER)
+import 'screens/academic_hub/timetable_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,15 +45,29 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  // 🔐 Core
   Get.put(AuthRepository(), permanent: true);
   Get.put(MainShellController(), permanent: true);
 
+  // 🔐 Auth Controllers
   Get.put(LoginController(), permanent: true);
   Get.put(SignUpController(), permanent: true);
   Get.put(ForgotPasswordController(), permanent: true);
-  Get.put(ProfileController(), permanent: true); // ✅ ADD THIS
+  Get.put(ProfileController(), permanent: true);
 
-  Get.lazyPut<GroupController>(() => GroupController(), fenix: true);
+  // 💰 Budgeting Controllers
+  Get.lazyPut<PersonalExpenseController>(
+    () => PersonalExpenseController(),
+    fenix: true,
+  );
+  Get.lazyPut<GroupController>(
+    () => GroupController(),
+    fenix: true,
+  );
+  Get.lazyPut<ExpenseController>(
+    () => ExpenseController(),
+    fenix: true,
+  );
 
   runApp(const MyApp());
 }
@@ -65,8 +77,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = const Color(0xFF3AA8F7);
-    final secondary = const Color(0xFF47D6C4);
+    const primary = Color(0xFF3AA8F7);
+    const secondary = Color(0xFF47D6C4);
 
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
@@ -88,35 +100,28 @@ class MyApp extends StatelessWidget {
         GetPage(name: '/welcome', page: () => const WelcomeScreen()),
         GetPage(name: '/login', page: () => const AuthLoginScreen()),
         GetPage(name: '/signup', page: () => AuthSignupScreen()),
-        GetPage(name: '/forgot-password', page: () => const ForgotPasswordScreen()),
+        GetPage(
+          name: '/forgot-password',
+          page: () => const ForgotPasswordScreen(),
+        ),
         GetPage(name: '/verify-email', page: () => VerifyEmailScreen()),
 
         // 🏠 MAIN SHELL
         GetPage(name: '/home', page: () => const _MainShell()),
 
-        // 🔎 DEEP ROUTES
-        GetPage(name: '/personal-expenses', page: () => const PersonalExpensesScreen()),
-        GetPage(name: '/shared-expenses', page: () => SharedExpensesScreen()),
-        GetPage(name: '/groups', page: () => const GroupsListScreen()),
-        GetPage(name: '/create-group', page: () => CreateGroupScreen()),
+        // 📅 TIMETABLE (NO CONTROLLER USED)
         GetPage(
-          name: '/group-detail',
-          page: () {
-            final args = Get.arguments as Map<String, dynamic>? ?? {};
-            return GroupDetailScreen(
-              groupId: args['groupId'],
-              groupData: args['groupData'],
-            );
-          },
+          name: '/timetable',
+          page: () => const TimetablePage(),
         ),
       ],
     );
   }
 }
 
-/// 🧭 MAIN SHELL
+/// 🧭 MAIN SHELL WITH BOTTOM NAV
 class _MainShell extends StatelessWidget {
-  const _MainShell({super.key});
+  const _MainShell();
 
   @override
   Widget build(BuildContext context) {
@@ -132,8 +137,6 @@ class _MainShell extends StatelessWidget {
     ];
 
     return Obx(() {
-      final index = controller.selectedIndex.value;
-
       return Scaffold(
         extendBody: true,
         body: Container(
@@ -145,7 +148,7 @@ class _MainShell extends StatelessWidget {
             ),
           ),
           child: IndexedStack(
-            index: index,
+            index: controller.selectedIndex.value,
             children: pages,
           ),
         ),
@@ -167,7 +170,7 @@ class _MainShell extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(32),
               child: BottomNavigationBar(
-                currentIndex: index,
+                currentIndex: controller.selectedIndex.value,
                 onTap: controller.changeTab,
                 type: BottomNavigationBarType.fixed,
                 elevation: 0,
@@ -175,12 +178,20 @@ class _MainShell extends StatelessWidget {
                 selectedItemColor: Theme.of(context).primaryColor,
                 unselectedItemColor: const Color(0xFF9AA6B5),
                 items: const [
-                  BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
-                  BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_rounded), label: 'Chatbot'),
-                  BottomNavigationBarItem(icon: Icon(Icons.school_rounded), label: 'Academic'),
-                  BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_rounded), label: 'Budgeting'),
-                  BottomNavigationBarItem(icon: Icon(Icons.qr_code_scanner_rounded), label: 'CampusPay'),
-                  BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
+                  BottomNavigationBarItem(
+                      icon: Icon(Icons.home_rounded), label: 'Home'),
+                  BottomNavigationBarItem(
+                      icon: Icon(Icons.chat_bubble_rounded), label: 'Chatbot'),
+                  BottomNavigationBarItem(
+                      icon: Icon(Icons.school_rounded), label: 'Academic'),
+                  BottomNavigationBarItem(
+                      icon: Icon(Icons.account_balance_wallet_rounded),
+                      label: 'Budgeting'),
+                  BottomNavigationBarItem(
+                      icon: Icon(Icons.qr_code_scanner_rounded),
+                      label: 'CampusPay'),
+                  BottomNavigationBarItem(
+                      icon: Icon(Icons.person_rounded), label: 'Profile'),
                 ],
               ),
             ),

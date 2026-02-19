@@ -11,24 +11,50 @@ class ExpenseController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final RxList<ExpenseModel> expenses = <ExpenseModel>[].obs;
+  String? _currentGroupId;
 
   StreamSubscription<QuerySnapshot>? _expenseListener;
 
   // ───────────────────────── FETCH EXPENSES ─────────────────────────
 
   void fetchExpenses(String groupId) {
-    _expenseListener?.cancel();
+    // If we're already listening to this group, do nothing
+    if (_currentGroupId == groupId && _expenseListener != null) {
+      return;
+    }
 
+    // Cancel any existing listener
+    _expenseListener?.cancel();
+    
+    // Clear existing expenses
+    expenses.clear();
+    
+    // Set current group ID
+    _currentGroupId = groupId;
+
+    // Start new listener
     _expenseListener = _db
         .collection('groups')
         .doc(groupId)
         .collection('expenses')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .listen((snapshot) {
-      expenses.value =
-          snapshot.docs.map((e) => ExpenseModel.fromDoc(e)).toList();
-    });
+        .listen(
+          (snapshot) {
+            expenses.value =
+                snapshot.docs.map((e) => ExpenseModel.fromDoc(e)).toList();
+          },
+          onError: (error) {
+            // Handle permission errors silently when group is deleted
+            if (error.toString().contains('permission-denied')) {
+              // Group was likely deleted, just clear expenses
+              expenses.clear();
+            } else {
+              // Re-throw other errors
+              throw error;
+            }
+          },
+        );
   }
 
   // ───────────────────────── ADD EXPENSE ─────────────────────────
@@ -37,7 +63,7 @@ class ExpenseController extends GetxController {
     required String groupId,
     required String title,
     required double amount,
-    DateTime? createdAt, // ✅ ADDED
+    DateTime? createdAt,
   }) async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -47,8 +73,8 @@ class ExpenseController extends GetxController {
       'amount': amount,
       'paidBy': user.uid,
       'createdAt': createdAt != null
-          ? Timestamp.fromDate(createdAt) // ✅ user-selected date
-          : FieldValue.serverTimestamp(), // fallback
+          ? Timestamp.fromDate(createdAt)
+          : FieldValue.serverTimestamp(),
     });
   }
 
@@ -94,9 +120,22 @@ class ExpenseController extends GetxController {
     });
   }
 
+  // ───────────────────────── CLEANUP ─────────────────────────
+
+  void clearExpenses() {
+    expenses.clear();
+  }
+
+  void cancelListener() {
+    _expenseListener?.cancel();
+    _expenseListener = null;
+    _currentGroupId = null;
+    expenses.clear();
+  }
+
   @override
   void onClose() {
-    _expenseListener?.cancel();
+    cancelListener();
     super.onClose();
   }
 }

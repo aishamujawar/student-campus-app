@@ -134,12 +134,36 @@ class AcademicHubScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Text(
-                    'Track attendance, CGPA, assignments\nand schedules in one place.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 12,
-                      height: 1.35,
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'Track attendance, CGPA, assignments and schedules in one place.\n',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 12,
+                            height: 1.35,
+                          ),
+                        ),
+                        TextSpan(
+                          text: 'Important: ',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.white,
+                            fontSize: 12,
+                            height: 1.35,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        TextSpan(
+                          text: 'Tap \'CGPA\' to begin a new semester. First, archive your current semester to clear all data, then start fresh.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.white,
+                            fontSize: 12,
+                            height: 1.35,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

@@ -1109,7 +1109,14 @@ class _TimetablePageState extends State<TimetablePage> {
 
     if (data.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Timetable is empty")),
+        SnackBar(
+          content: Text('Timetable is empty'),
+          backgroundColor: Color(0xFF3AA8F7),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
       );
       return;
     }
@@ -1119,7 +1126,14 @@ class _TimetablePageState extends State<TimetablePage> {
     await _timetableService.saveTimetable(data);
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Timetable saved")),
+      SnackBar(
+        content: Text('Timetable saved successfully!'),
+        backgroundColor: Color(0xFF3AA8F7), // Blue color from CGPA page
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
     );
   }
 

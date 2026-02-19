@@ -122,4 +122,84 @@ class TimetableService {
 
     return unique;
   }
+
+  // 🔥 NEW: Get row time mapping for merging with classes
+  Future<Map<int, Map<String, String>>> getRowTimeMap() async {
+    try {
+      final uid = _auth.currentUser!.uid;
+      
+      // Query all 'row' type documents from user's timetable
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('timetable')
+          .where('type', isEqualTo: 'row')
+          .get();
+
+      final rowTimes = <int, Map<String, String>>{};
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final rowIndex = data['rowIndex'] as int?;
+        
+        if (rowIndex != null && 
+            data['startTime'] != null && 
+            data['endTime'] != null) {
+          rowTimes[rowIndex] = {
+            'startTime': data['startTime'].toString(),
+            'endTime': data['endTime'].toString(),
+          };
+        }
+      }
+
+      print('🕒 Row time map ready: Found ${rowTimes.length} rows with time data');
+      
+      // Debug: Print each row time
+      rowTimes.forEach((index, time) {
+        print('   Row $index: ${time['startTime']} - ${time['endTime']}');
+      });
+      
+      return rowTimes;
+    } catch (e) {
+      print('❌ Error fetching row times: $e');
+      return {};
+    }
+  }
+  
+  // 🔥 OPTIONAL: Helper to get ALL timetable data (rows + cells) in one go
+  Future<Map<String, dynamic>> getFullTimetableData() async {
+    try {
+      final uid = _auth.currentUser!.uid;
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('timetable')
+          .get();
+
+      final rows = <Map<String, dynamic>>[];
+      final cellsByDay = List.generate(7, (_) => <Map<String, dynamic>>[]);
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final type = data['type'] as String?;
+        
+        if (type == 'row') {
+          rows.add(data);
+        } else if (type == 'cell') {
+          final dayIndex = data['dayIndex'] as int?;
+          if (dayIndex != null && dayIndex >= 0 && dayIndex < 7) {
+            cellsByDay[dayIndex].add(data);
+          }
+        }
+      }
+
+      return {
+        'rows': rows,
+        'cellsByDay': cellsByDay,
+      };
+    } catch (e) {
+      print('❌ Error fetching full timetable: $e');
+      return {'rows': [], 'cellsByDay': List.generate(7, (_) => [])};
+    }
+  }
 }
