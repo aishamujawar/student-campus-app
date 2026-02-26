@@ -7,7 +7,7 @@ import 'assignment_service.dart';
 import 'timetable_service.dart';
 import 'cgpa_service.dart';
 import 'attendance_service.dart';
-import 'user_service.dart'; // NEW IMPORT
+import 'user_service.dart';
 
 class ChatbotService {
   final CalendarService _calendar = CalendarService();
@@ -21,7 +21,7 @@ class ChatbotService {
       Get.find<PersonalExpenseController>();
 
   Future<String> askBot(String message) async {
-    // NEW: Get user's first name
+    // Get user's first name
     final firstName = await UserService.getCurrentUserFirstName();
     
     // Collect real data from app
@@ -58,7 +58,7 @@ class ChatbotService {
     // Today's index for quick reference
     final todayIndex = DateTime.now().weekday - 1; // Monday=0, Sunday=6
     
-    // UPDATED CONTEXT with user name
+    // Send structured calendar marks with category names
     final context = {
       "message": message,
       "user": {
@@ -68,16 +68,14 @@ class ChatbotService {
       "timetable": weeklyTimetable,
       "todayIndex": todayIndex,
       "cgpa": semesters,
-      "calendarMarks": coloredDays.keys.toList(),
+      "calendarMarks": coloredDays.entries.map((e) => {
+        "date": e.key,
+        "categoryName": e.value.categoryName,
+      }).toList(),
       "attendance": attendanceSummary,
       "expenses": expenseSummary,
     };
 
-    // Development logs only
-    print('[Chatbot] Sending context to assistant');
-    print('[Chatbot] User: $firstName');
-    print('[Chatbot] Expense: ₹${expenseSummary['thisMonth']} this month');
-    
     try {
       final response = await http.post(
         Uri.parse("http://localhost:3000/chat"),
@@ -87,13 +85,11 @@ class ChatbotService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print('[Chatbot] Assistant reply intent: ${data["intent"]}');
         return data["reply"];
       } else {
         return "Unable to connect to assistant (Status: ${response.statusCode})";
       }
     } catch (e) {
-      print('[Chatbot] Service error: $e');
       return "Unable to reach the assistant server. Please check if backend is running on http://localhost:3000";
     }
   }

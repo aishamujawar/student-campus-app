@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // IMPORT ADDED
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -356,12 +357,13 @@ class _CampusAssistantScreenState extends State<CampusAssistantScreen> {
         
         const SizedBox(height: 16),
         
-        // Input bar
+        // Input bar with Enter key support
         _inputBar(),
       ],
     );
   }
 
+  // FIXED: Enter sends message, Shift+Enter adds new line
   Widget _inputBar() {
     return Obx(() {
       return Container(
@@ -376,22 +378,41 @@ class _CampusAssistantScreenState extends State<CampusAssistantScreen> {
         child: Row(
           children: [
             Expanded(
-              child: TextField(
-                controller: _messageController,
-                enabled: !_isAssistantTyping.value,
-                maxLines: 3,
-                minLines: 1,
-                onSubmitted: (_) => _sendMessage(),
-                decoration: InputDecoration(
-                  hintText: _isAssistantTyping.value
-                      ? 'Assistant is analyzing your data...'
-                      : 'Ask about classes, assignments, CGPA...',
-                  border: InputBorder.none,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  hintStyle: TextStyle(
-                    color: const Color(0xFF7A8A9C),
-                    fontSize: 13,
+              child: KeyboardListener(
+                focusNode: FocusNode(),
+                onKeyEvent: (KeyEvent event) {
+                  if (event is KeyDownEvent) {
+                    // Check if Enter is pressed WITHOUT Shift
+                    if (event.logicalKey == LogicalKeyboardKey.enter) {
+                      // Check if Shift is not pressed
+                      final shiftPressed = HardwareKeyboard.instance.isShiftPressed;
+                      
+                      if (!shiftPressed) {
+                        // Enter without Shift -> send message
+                        _sendMessage();
+                      }
+                      // If Shift+Enter, do nothing here (TextField will handle new line)
+                    }
+                  }
+                },
+                child: TextField(
+                  controller: _messageController,
+                  enabled: !_isAssistantTyping.value,
+                  maxLines: 5,
+                  minLines: 1,
+                  keyboardType: TextInputType.multiline,
+                  textInputAction: TextInputAction.newline, // Shows return key
+                  decoration: InputDecoration(
+                    hintText: _isAssistantTyping.value
+                        ? 'Assistant is analyzing your data...'
+                        : 'Ask about classes, assignments, CGPA...',
+                    border: InputBorder.none,
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    hintStyle: TextStyle(
+                      color: const Color(0xFF7A8A9C),
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ),
@@ -523,8 +544,48 @@ class _ChatBubble extends StatelessWidget {
   }
 }
 
-class _TypingBubble extends StatelessWidget {
+// BETTER LOADING ANIMATION
+class _TypingBubble extends StatefulWidget {
   const _TypingBubble();
+
+  @override
+  State<_TypingBubble> createState() => _TypingBubbleState();
+}
+
+class _TypingBubbleState extends State<_TypingBubble>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late List<Animation<double>> _animations;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+
+    // Create three dots with staggered animations
+    _animations = List.generate(3, (index) {
+      return Tween<double>(begin: 0.4, end: 1.0).animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: Interval(
+            index * 0.15,
+            (index * 0.15) + 0.5,
+            curve: Curves.easeInOut,
+          ),
+        ),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -533,11 +594,10 @@ class _TypingBubble extends StatelessWidget {
       child: Align(
         alignment: Alignment.centerLeft,
         child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.04),
@@ -549,23 +609,40 @@ class _TypingBubble extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Animated dots
+              Row(
+                children: List.generate(3, (index) {
+                  return AnimatedBuilder(
+                    animation: _animations[index],
+                    builder: (context, child) {
+                      return Opacity(
+                        opacity: _animations[index].value,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          margin: const EdgeInsets.only(right: 4),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFF3AA8F7),
+                                Color(0xFF47D6C4),
+                              ],
+                            ),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                }),
+              ),
+              const SizedBox(width: 8),
               Text(
-                'Analyzing your data',
+                'Assistant is thinking',
                 style: TextStyle(
                   fontSize: 13,
                   color: Colors.grey.shade600,
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 20,
-                child: Center(
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Colors.grey.shade400,
-                    ),
-                  ),
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
