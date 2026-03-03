@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // IMPORT ADDED
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -21,9 +21,9 @@ class _CampusAssistantScreenState extends State<CampusAssistantScreen> {
   final _db = FirebaseFirestore.instance;
   final _chatbotService = ChatbotService();
 
-  final TextEditingController _messageController =
-      TextEditingController();
-  final ScrollController _scrollController = ScrollController();
+  // Properly declared controllers
+  late final TextEditingController _messageController;
+  late final ScrollController _scrollController;
 
   final RxBool _isAssistantTyping = false.obs;
   final RxList<_ChatMessage> _messages = <_ChatMessage>[].obs;
@@ -33,11 +33,16 @@ class _CampusAssistantScreenState extends State<CampusAssistantScreen> {
   @override
   void initState() {
     super.initState();
+    // Initialize controllers in initState
+    _messageController = TextEditingController();
+    _scrollController = ScrollController();
+    
     _loadChatHistory();
   }
 
   @override
   void dispose() {
+    // Properly dispose all controllers
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -112,7 +117,7 @@ class _CampusAssistantScreenState extends State<CampusAssistantScreen> {
     _scrollToBottom();
     _saveMessagesToFirestore();
 
-    // 🔥 USING THE NEW DATA-AWARE CHATBOT SERVICE
+    // USING THE NEW DATA-AWARE CHATBOT SERVICE
     _chatbotService.askBot(text).then((reply) {
       _messages.removeWhere((m) => m.role == MessageRole.typing);
 
@@ -240,7 +245,6 @@ class _CampusAssistantScreenState extends State<CampusAssistantScreen> {
             ),
           ),
           const Spacer(),
-          // No close button - removed as requested
         ],
       );
 
@@ -289,7 +293,7 @@ class _CampusAssistantScreenState extends State<CampusAssistantScreen> {
         
         // Chat messages area - Fixed height container
         Container(
-          height: 500, // Fixed height to prevent unbounded constraints
+          height: 500,
           decoration: BoxDecoration(
             color: const Color(0xFFF4F7FB),
             borderRadius: BorderRadius.circular(20),
@@ -357,14 +361,14 @@ class _CampusAssistantScreenState extends State<CampusAssistantScreen> {
         
         const SizedBox(height: 16),
         
-        // Input bar with Enter key support
-        _inputBar(),
+        // ULTRA SIMPLE: Just a TextField and a button
+        _simpleInputBar(),
       ],
     );
   }
 
-  // FIXED: Enter sends message, Shift+Enter adds new line
-  Widget _inputBar() {
+  // ULTRA SIMPLE - No key handling at all
+  Widget _simpleInputBar() {
     return Obx(() {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -378,43 +382,29 @@ class _CampusAssistantScreenState extends State<CampusAssistantScreen> {
         child: Row(
           children: [
             Expanded(
-              child: KeyboardListener(
-                focusNode: FocusNode(),
-                onKeyEvent: (KeyEvent event) {
-                  if (event is KeyDownEvent) {
-                    // Check if Enter is pressed WITHOUT Shift
-                    if (event.logicalKey == LogicalKeyboardKey.enter) {
-                      // Check if Shift is not pressed
-                      final shiftPressed = HardwareKeyboard.instance.isShiftPressed;
-                      
-                      if (!shiftPressed) {
-                        // Enter without Shift -> send message
-                        _sendMessage();
-                      }
-                      // If Shift+Enter, do nothing here (TextField will handle new line)
-                    }
-                  }
-                },
-                child: TextField(
-                  controller: _messageController,
-                  enabled: !_isAssistantTyping.value,
-                  maxLines: 5,
-                  minLines: 1,
-                  keyboardType: TextInputType.multiline,
-                  textInputAction: TextInputAction.newline, // Shows return key
-                  decoration: InputDecoration(
-                    hintText: _isAssistantTyping.value
-                        ? 'Assistant is analyzing your data...'
-                        : 'Ask about classes, assignments, CGPA...',
-                    border: InputBorder.none,
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    hintStyle: TextStyle(
-                      color: const Color(0xFF7A8A9C),
-                      fontSize: 13,
-                    ),
+              child: TextField(
+                controller: _messageController,
+                enabled: !_isAssistantTyping.value,
+                maxLines: 5,
+                minLines: 1,
+                keyboardType: TextInputType.text, // Changed from multiline
+                textInputAction: TextInputAction.done, // Changed to done
+                decoration: InputDecoration(
+                  hintText: _isAssistantTyping.value
+                      ? 'Assistant is analyzing your data...'
+                      : 'Ask about classes, assignments, CGPA...',
+                  border: InputBorder.none,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  hintStyle: TextStyle(
+                    color: const Color(0xFF7A8A9C),
+                    fontSize: 13,
                   ),
                 ),
+                onSubmitted: (value) {
+                  // This will only be called when user presses "Done" on keyboard
+                  _sendMessage();
+                },
               ),
             ),
             const SizedBox(width: 8),
@@ -544,7 +534,7 @@ class _ChatBubble extends StatelessWidget {
   }
 }
 
-// BETTER LOADING ANIMATION
+// Typing animation
 class _TypingBubble extends StatefulWidget {
   const _TypingBubble();
 
@@ -566,7 +556,6 @@ class _TypingBubbleState extends State<_TypingBubble>
       duration: const Duration(milliseconds: 1200),
     )..repeat();
 
-    // Create three dots with staggered animations
     _animations = List.generate(3, (index) {
       return Tween<double>(begin: 0.4, end: 1.0).animate(
         CurvedAnimation(
@@ -609,7 +598,6 @@ class _TypingBubbleState extends State<_TypingBubble>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Animated dots
               Row(
                 children: List.generate(3, (index) {
                   return AnimatedBuilder(
