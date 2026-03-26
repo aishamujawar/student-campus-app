@@ -52,7 +52,9 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
   Future<void> _loadData() async {
     final members = List<String>.from(widget.groupData['members'] ?? []);
     await _ensureMemberNames(members);
-    setState(() => _loading = false);
+    if (mounted) {
+      setState(() => _loading = false);
+    }
   }
 
   Future<void> _ensureMemberNames(List<String> memberIds) async {
@@ -113,7 +115,9 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
                 // Try to add member and catch any errors
                 try {
                   await _groupController.addMemberToGroup(widget.groupId, email);
-                  Navigator.pop(context);
+                  if (mounted) {
+                    Navigator.pop(context);
+                  }
                 } catch (e) {
                   _showErrorSnackbar('User not found with this email');
                 }
@@ -214,7 +218,9 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
 
   Future<void> _deleteGroup() async {
     await _groupController.deleteGroup(widget.groupId);
-    Navigator.pop(context);
+    if (mounted) {
+      Navigator.pop(context);
+    }
   }
 
   Future<void> _settleUp() async {
@@ -251,7 +257,9 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
                 if (!_handledDeletion) {
                   _handledDeletion = true;
                   WidgetsBinding.instance.addPostFrameCallback((_) {
-                    Navigator.pop(context);
+                    if (mounted) {
+                      Navigator.pop(context);
+                    }
                   });
                 }
                 return const SizedBox.shrink();
@@ -756,7 +764,7 @@ class __AddExpenseSheetState extends State<_AddExpenseSheet> {
       lastDate: DateTime.now(),
     );
     
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(() => _selectedDate = picked);
     }
   }
@@ -766,31 +774,39 @@ class __AddExpenseSheetState extends State<_AddExpenseSheet> {
     final rawAmount = _amountController.text.trim();
     
     if (title.isEmpty || rawAmount.isEmpty) {
-      setState(() {
-        _errorText = 'Please fill all fields';
-      });
+      if (mounted) {
+        setState(() {
+          _errorText = 'Please fill all fields';
+        });
+      }
       return;
     }
     
     final amount = double.tryParse(rawAmount);
     if (amount == null) {
-      setState(() {
-        _errorText = 'Invalid amount';
-      });
+      if (mounted) {
+        setState(() {
+          _errorText = 'Invalid amount';
+        });
+      }
       return;
     }
     
     if (amount <= 0) {
-      setState(() {
-        _errorText = 'Amount must be greater than 0';
-      });
+      if (mounted) {
+        setState(() {
+          _errorText = 'Amount must be greater than 0';
+        });
+      }
       return;
     }
     
-    setState(() {
-      _loading = true;
-      _errorText = null;
-    });
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _errorText = null;
+      });
+    }
     
     try {
       await _expenseController.addExpense(
@@ -800,13 +816,19 @@ class __AddExpenseSheetState extends State<_AddExpenseSheet> {
         createdAt: _selectedDate,
       );
       
-      Navigator.pop(context);
+      if (mounted) {
+        Navigator.pop(context);
+      }
     } catch (e) {
-      setState(() {
-        _errorText = 'Failed to add expense';
-      });
+      if (mounted) {
+        setState(() {
+          _errorText = 'Failed to add expense';
+        });
+      }
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
   
@@ -849,7 +871,11 @@ class __AddExpenseSheetState extends State<_AddExpenseSheet> {
           
           TextField(
             controller: _titleController,
-            onChanged: (value) => setState(() => _errorText = null),
+            onChanged: (value) {
+              if (mounted) {
+                setState(() => _errorText = null);
+              }
+            },
             decoration: InputDecoration(
               labelText: 'Title',
               filled: true,
@@ -865,7 +891,11 @@ class __AddExpenseSheetState extends State<_AddExpenseSheet> {
           TextField(
             controller: _amountController,
             keyboardType: TextInputType.number,
-            onChanged: (value) => setState(() => _errorText = null),
+            onChanged: (value) {
+              if (mounted) {
+                setState(() => _errorText = null);
+              }
+            },
             decoration: InputDecoration(
               labelText: 'Amount',
               filled: true,

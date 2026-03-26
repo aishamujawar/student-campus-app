@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:student_campus_app/controllers/main_shell_controller.dart';
 
 class LoginController extends GetxController {
   static LoginController get instance => Get.find<LoginController>();
@@ -13,11 +14,6 @@ class LoginController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   /// Call this from your UI "Sign In" button.
-  /// Example:
-  /// LoginController.instance.loginUser(
-  ///   LoginController.instance.email.text.trim(),
-  ///   LoginController.instance.password.text.trim(),
-  /// );
   Future<bool> loginUser(String email, String password) async {
     try {
       isLoading.value = true;
@@ -32,6 +28,22 @@ class LoginController extends GetxController {
         'Logged in successfully.',
         snackPosition: SnackPosition.BOTTOM,
       );
+      
+      // Clear fields after successful login
+      _clearFields();
+      
+      // Reset MainShellController to home tab before navigating
+      if (Get.isRegistered<MainShellController>()) {
+        final mainShellController = Get.find<MainShellController>();
+        mainShellController.selectedIndex.value = 0;
+      }
+      
+      // Small delay to ensure everything is ready
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      // Navigate to home after successful login
+      Get.offAllNamed('/home');
+      
       return true;
     } on FirebaseAuthException catch (e) {
       Get.snackbar(
@@ -52,9 +64,16 @@ class LoginController extends GetxController {
     }
   }
 
-  /// Optional: log out from anywhere (Profile screen, etc.)
+  void _clearFields() {
+    email.clear();
+    password.clear();
+  }
+
+  /// Logout function
   Future<void> logout() async {
     await _auth.signOut();
+    _clearFields();
+    Get.offAllNamed('/welcome');
   }
 
   @override

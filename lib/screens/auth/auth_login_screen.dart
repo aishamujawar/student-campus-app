@@ -14,9 +14,20 @@ class AuthLoginScreen extends StatefulWidget {
 class _AuthLoginScreenState extends State<AuthLoginScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final LoginController loginController = Get.put(LoginController());
+  late final LoginController loginController;
+  bool _obscurePassword = true;
 
-  bool _obscurePassword = true; // 👁️ password toggle state
+  @override
+  void initState() {
+    super.initState();
+    // Initialize controller
+    loginController = Get.find<LoginController>();
+    // Clear fields when login screen is shown
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      loginController.email.clear();
+      loginController.password.clear();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -225,7 +236,8 @@ class _AuthLoginScreenState extends State<AuthLoginScreen> {
                         );
 
                         if (success && mounted) {
-                          Navigator.pushReplacementNamed(context, '/home');
+                          // Use Get.offAllNamed to clear navigation stack
+                          Get.offAllNamed('/home');
                         }
                       },
                 child: loginController.isLoading.value
@@ -267,7 +279,7 @@ class _AuthLoginScreenState extends State<AuthLoginScreen> {
         ),
         TextButton(
           onPressed: () {
-            Navigator.pushReplacementNamed(context, '/signup');
+            Get.offAllNamed('/signup');
           },
           child: const Text(
             'Create an account',

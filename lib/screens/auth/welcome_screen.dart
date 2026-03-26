@@ -91,6 +91,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             onPageChangeCallback: _onPageChange,
             waveType: WaveType.liquidReveal,
             enableSideReveal: true,
+            enableLoop: false,
             slideIconWidget: const Icon(
               Icons.arrow_back_ios_new_rounded,
               color: Colors.white,

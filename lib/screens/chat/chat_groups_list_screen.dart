@@ -3,25 +3,20 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
-import 'package:student_campus_app/screens/budgeting/shared_expenses/group_detail_screen.dart';
+import '../../controllers/main_shell_controller.dart';
+import 'controllers/chat_controller.dart';
+import 'chat_detail_screen.dart';
 
-// =====================================================
-// IMPORT YOUR REAL CONTROLLERS
-// =====================================================
-import 'controllers/group_controller.dart';
-
-// =====================================================
-// GROUPS LIST PAGE (MAIN PAGE - LIKE CGPA/ASSIGNMENTS)
-// =====================================================
-
-class GroupsListPage extends StatefulWidget {
-  const GroupsListPage({super.key});
+class ChatGroupsListScreen extends StatefulWidget {
+  const ChatGroupsListScreen({super.key});
 
   @override
-  State<GroupsListPage> createState() => _GroupsListPageState();
+  State<ChatGroupsListScreen> createState() => _ChatGroupsListScreenState();
 }
 
-class _GroupsListPageState extends State<GroupsListPage> {
+class _ChatGroupsListScreenState extends State<ChatGroupsListScreen> {
+  final ChatController _chatController = Get.find<ChatController>();
+  final MainShellController _shellController = Get.find<MainShellController>();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   String? _currentUserId;
   bool _loading = true;
@@ -34,40 +29,42 @@ class _GroupsListPageState extends State<GroupsListPage> {
   }
   
   Future<void> _loadData() async {
+    // ✅ Check if widget is still mounted before calling setState
     if (mounted) {
       setState(() => _loading = true);
     }
+    
     await Future.delayed(const Duration(milliseconds: 300));
+    
+    // ✅ Check if widget is still mounted before calling setState again
     if (mounted) {
       setState(() => _loading = false);
     }
   }
   
-  // ===== CREATE GROUP BOTTOM SHEET =====
   void _openCreateGroupSheet() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _CreateGroupSheet(),
+      builder: (context) => _CreateChatGroupSheet(),
     );
   }
   
-  // ===== GROUP DETAIL PAGE =====
-  void _openGroupDetailPage(String groupId, Map<String, dynamic> groupData) {
+  void _openChatDetail(String groupId, ChatGroupModel group) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => GroupDetailPage(
+        builder: (_) => ChatDetailScreen(
           groupId: groupId,
-          groupData: groupData,
+          groupData: {
+            'name': group.name,
+            'members': group.members,
+            'createdBy': group.createdBy,
+          },
         ),
       ),
     );
   }
-  
-  // =====================================================
-  // UI BUILD
-  // =====================================================
   
   @override
   Widget build(BuildContext context) {
@@ -83,7 +80,7 @@ class _GroupsListPageState extends State<GroupsListPage> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: FractionallySizedBox(
-                widthFactor: 0.9,
+                widthFactor: 0.85,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 430),
                   child: _card(context),
@@ -133,14 +130,14 @@ class _GroupsListPageState extends State<GroupsListPage> {
           ),
         ),
         child: const Icon(
-          Icons.groups_rounded,
+          Icons.chat_rounded,
           size: 18,
           color: Colors.white,
         ),
       ),
       const SizedBox(width: 8),
       const Text(
-        'Shared Expenses',
+        'Chat Groups',
         style: TextStyle(
           fontWeight: FontWeight.w700,
           fontSize: 18,
@@ -149,7 +146,10 @@ class _GroupsListPageState extends State<GroupsListPage> {
       const Spacer(),
       IconButton(
         icon: const Icon(Icons.close_rounded),
-        onPressed: () => Navigator.pop(context),
+        onPressed: () {
+          // Use MainShellController to go back to Home (index 0)
+          _shellController.changeTab(0);
+        },
       ),
     ],
   );
@@ -164,7 +164,7 @@ class _GroupsListPageState extends State<GroupsListPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Loading your groups...',
+            'Loading your chats...',
             style: TextStyle(
               color: Colors.grey[600],
               fontSize: 14,
@@ -176,83 +176,66 @@ class _GroupsListPageState extends State<GroupsListPage> {
   }
   
   Widget _content() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('groups')
-          .where('members', arrayContains: _currentUserId)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return _loadingState();
-        }
-        
-        if (snapshot.hasError) {
-          return _errorState();
-        }
-        
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return _emptyState();
-        }
-        
-        final groups = snapshot.data!.docs;
-        
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Your Groups',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-                color: Color(0xFF16222C),
-              ),
+    return Obx(() {
+      if (_chatController.chatGroups.isEmpty) {
+        return _emptyState();
+      }
+      
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Your Chats',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              color: Color(0xFF16222C),
             ),
-            const SizedBox(height: 4),
-            Text(
-              '${groups.length} group${groups.length == 1 ? '' : 's'}',
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF7A8A9C),
-              ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${_chatController.chatGroups.length} group${_chatController.chatGroups.length == 1 ? '' : 's'}',
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF7A8A9C),
             ),
-            const SizedBox(height: 16),
-            ...groups.map((group) {
-              final data = group.data() as Map<String, dynamic>;
-              final members = (data['members'] ?? []) as List;
-              
-              return _groupCard(group.id, data, members.length);
-            }).toList(),
-            
-            // ===== ADD ANOTHER GROUP BUTTON =====
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _openCreateGroupSheet,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3AA8F7),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
+          ),
+          const SizedBox(height: 16),
+          ..._chatController.chatGroups.map((group) {
+            return _groupCard(group);
+          }).toList(),
+          
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _openCreateGroupSheet,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF3AA8F7),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
                 ),
-                child: const Text(
-                  'Add Another Group',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
+              ),
+              child: const Text(
+                'Create New Group',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
                 ),
               ),
             ),
-          ],
-        );
-      },
-    );
+          ),
+        ],
+      );
+    });
   }
   
-  Widget _groupCard(String groupId, Map<String, dynamic> data, int memberCount) {
+  Widget _groupCard(ChatGroupModel group) {
+    final isMember = group.members.contains(_currentUserId);
+    if (!isMember) return const SizedBox.shrink();
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -260,7 +243,7 @@ class _GroupsListPageState extends State<GroupsListPage> {
         color: const Color(0xFFF4F7FB),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => _openGroupDetailPage(groupId, data),
+          onTap: () => _openChatDetail(group.id, group),
           child: Container(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -273,7 +256,7 @@ class _GroupsListPageState extends State<GroupsListPage> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(
-                    Icons.groups_rounded,
+                    Icons.chat_bubble_rounded,
                     color: Color(0xFF3AA8F7),
                     size: 24,
                   ),
@@ -284,7 +267,7 @@ class _GroupsListPageState extends State<GroupsListPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        data['name'] ?? 'Unnamed Group',
+                        group.name,
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
@@ -293,18 +276,33 @@ class _GroupsListPageState extends State<GroupsListPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '$memberCount member${memberCount == 1 ? '' : 's'}',
-                        style: const TextStyle(
+                        group.lastMessage != null
+                            ? (group.lastMessage!.length > 40
+                                ? '${group.lastMessage!.substring(0, 40)}...'
+                                : group.lastMessage!)
+                            : 'No messages yet',
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF7A8A9C),
+                          color: group.lastMessage != null
+                              ? const Color(0xFF5A6A7A)
+                              : const Color(0xFF9AA6B5),
                         ),
                       ),
                     ],
                   ),
                 ),
+                if (group.lastMessageTime != null)
+                  Text(
+                    _formatTime(group.lastMessageTime!),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF9AA6B5),
+                    ),
+                  ),
+                const SizedBox(width: 8),
                 const Icon(
                   Icons.arrow_forward_ios_rounded,
-                  size: 16,
+                  size: 14,
                   color: Color(0xFF9AA6B5),
                 ),
               ],
@@ -313,6 +311,21 @@ class _GroupsListPageState extends State<GroupsListPage> {
         ),
       ),
     );
+  }
+  
+  String _formatTime(DateTime time) {
+    final now = DateTime.now();
+    final diff = now.difference(time);
+    
+    if (diff.inDays > 0) {
+      return '${diff.inDays}d';
+    } else if (diff.inHours > 0) {
+      return '${diff.inHours}h';
+    } else if (diff.inMinutes > 0) {
+      return '${diff.inMinutes}m';
+    } else {
+      return 'now';
+    }
   }
   
   Widget _emptyState() {
@@ -328,13 +341,13 @@ class _GroupsListPageState extends State<GroupsListPage> {
           child: Column(
             children: [
               const Icon(
-                Icons.groups_outlined,
+                Icons.chat_outlined,
                 size: 48,
                 color: Color(0xFF9AA6B5),
               ),
               const SizedBox(height: 12),
               const Text(
-                'No groups yet',
+                'No chat groups yet',
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 16,
@@ -343,7 +356,7 @@ class _GroupsListPageState extends State<GroupsListPage> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Create a group to start sharing expenses',
+                'Create a group to start chatting',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Color(0xFF7A8A9C),
@@ -378,90 +391,46 @@ class _GroupsListPageState extends State<GroupsListPage> {
     );
   }
   
-  Widget _errorState() {
-    return Column(
-      children: [
-        const SizedBox(height: 20),
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFF3F3),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: const Color(0xFFEF5350).withOpacity(0.3),
-            ),
-          ),
-          child: const Column(
-            children: [
-              Icon(
-                Icons.error_outline_rounded,
-                size: 48,
-                color: Color(0xFFEF5350),
-              ),
-              SizedBox(height: 12),
-              Text(
-                'Unable to load groups',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFFEF5350),
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Please check your connection and try again',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Color(0xFF7A8A9C),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+  @override
+  void dispose() {
+    // Clean up any resources
+    super.dispose();
   }
 }
 
-// =====================================================
-// CREATE GROUP BOTTOM SHEET
-// =====================================================
-
-class _CreateGroupSheet extends StatefulWidget {
+// ───────────────────────── CREATE GROUP SHEET ─────────────────────────
+class _CreateChatGroupSheet extends StatefulWidget {
   @override
-  State<_CreateGroupSheet> createState() => __CreateGroupSheetState();
+  State<_CreateChatGroupSheet> createState() => __CreateChatGroupSheetState();
 }
 
-class __CreateGroupSheetState extends State<_CreateGroupSheet> {
+class __CreateChatGroupSheetState extends State<_CreateChatGroupSheet> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
-  final GroupController _groupController = Get.find<GroupController>();
+  final ChatController _chatController = Get.find<ChatController>();
   String? _errorText;
   
   Future<void> _addMember() async {
     final email = _emailController.text.trim();
     if (email.isEmpty) {
+      // ✅ Check mounted before setState
       if (mounted) {
-        setState(() {
-          _errorText = 'Please enter an email';
-        });
+        setState(() => _errorText = 'Please enter an email');
       }
       return;
     }
     
-    // Try to add member and catch any errors
     try {
-      await _groupController.addMemberByEmail(email);
+      await _chatController.addMemberByEmail(email);
+      // ✅ Check mounted before setState
       if (mounted) {
-        setState(() {
-          _errorText = null;
-        });
+        setState(() => _errorText = null);
         _emailController.clear();
       }
     } catch (e) {
+      // ✅ Check mounted before setState
       if (mounted) {
-        setState(() {
-          _errorText = 'User not found with this email';
-        });
+        setState(() => _errorText = 'User not found with this email');
       }
     }
   }
@@ -469,34 +438,31 @@ class __CreateGroupSheetState extends State<_CreateGroupSheet> {
   Future<void> _createGroup() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
+      // ✅ Check mounted before setState
       if (mounted) {
-        setState(() {
-          _errorText = 'Please enter a group name';
-        });
-      }
-      return;
-    }
-
-    if (_groupController.selectedMembers.isEmpty) {
-      if (mounted) {
-        setState(() {
-          _errorText = 'Please add at least one member';
-        });
+        setState(() => _errorText = 'Please enter a group name');
       }
       return;
     }
     
-    // Try to create group and catch any errors
+    if (_chatController.selectedMembers.isEmpty) {
+      // ✅ Check mounted before setState
+      if (mounted) {
+        setState(() => _errorText = 'Please add at least one member');
+      }
+      return;
+    }
+    
     try {
-      await _groupController.createGroup(name);
+      await _chatController.createGroup(name);
+      // ✅ Check mounted before popping
       if (mounted) {
         Navigator.pop(context);
       }
     } catch (e) {
+      // ✅ Check mounted before setState
       if (mounted) {
-        setState(() {
-          _errorText = 'Failed to create group';
-        });
+        setState(() => _errorText = 'Failed to create group');
       }
     }
   }
@@ -537,7 +503,7 @@ class __CreateGroupSheetState extends State<_CreateGroupSheet> {
             ),
           ),
           const Text(
-            'Create Group',
+            'Create Chat Group',
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 18,
@@ -548,6 +514,7 @@ class __CreateGroupSheetState extends State<_CreateGroupSheet> {
           TextField(
             controller: _nameController,
             onChanged: (value) {
+              // ✅ Check mounted before setState
               if (mounted) {
                 setState(() => _errorText = null);
               }
@@ -564,13 +531,13 @@ class __CreateGroupSheetState extends State<_CreateGroupSheet> {
           ),
           const SizedBox(height: 12),
           
-          // Member email field
           Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: _emailController,
                   onChanged: (value) {
+                    // ✅ Check mounted before setState
                     if (mounted) {
                       setState(() => _errorText = null);
                     }
@@ -593,7 +560,7 @@ class __CreateGroupSheetState extends State<_CreateGroupSheet> {
               ),
             ],
           ),
-
+          
           if (_errorText != null) ...[
             const SizedBox(height: 12),
             Container(
@@ -623,9 +590,8 @@ class __CreateGroupSheetState extends State<_CreateGroupSheet> {
             ),
           ],
           
-          // Selected members list
           Obx(() {
-            if (_groupController.selectedMembers.isEmpty) {
+            if (_chatController.selectedMembers.isEmpty) {
               return const SizedBox(height: 12);
             }
             
@@ -644,7 +610,7 @@ class __CreateGroupSheetState extends State<_CreateGroupSheet> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 4,
-                  children: _groupController.selectedMembers.map((member) {
+                  children: _chatController.selectedMembers.map((member) {
                     return Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
@@ -664,7 +630,7 @@ class __CreateGroupSheetState extends State<_CreateGroupSheet> {
                           ),
                           const SizedBox(width: 4),
                           GestureDetector(
-                            onTap: () => _groupController.removeMember(member['uid']),
+                            onTap: () => _chatController.removeMember(member['uid']),
                             child: const Icon(
                               Icons.close_rounded,
                               size: 14,

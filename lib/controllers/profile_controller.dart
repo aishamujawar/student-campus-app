@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,6 +9,8 @@ import '../models/user_model.dart';
 class ProfileController extends GetxController {
   final _db = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
+  
+  late final StreamSubscription<User?> _authStateSubscription;
 
   final user = Rxn<UserModel>();
   final isLoading = false.obs;
@@ -14,24 +18,47 @@ class ProfileController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    fetchUser();
+    _authStateSubscription = _auth.authStateChanges().listen((User? firebaseUser) {
+      if (firebaseUser != null) {
+        fetchUser();
+      } else {
+        _clearUserData();
+      }
+    });
+  }
+  
+  void _clearUserData() {
+    user.value = null;
+    isLoading.value = false;
   }
 
   Future<void> fetchUser() async {
+    final uid = _auth.currentUser?.uid;
+    
+    if (uid == null) {
+      _clearUserData();
+      return;
+    }
+
+    if (isLoading.value) return;
+
     try {
       isLoading.value = true;
 
-      final uid = _auth.currentUser?.uid;
-      if (uid == null) return;
-
       final doc = await _db.collection('users').doc(uid).get();
-      if (!doc.exists) return;
+      
+      if (!doc.exists) {
+        user.value = null;
+        return;
+      }
 
       user.value = UserModel.fromMap(doc.data()!);
     } catch (e) {
-      Get.snackbar('Error', 'Failed to load profile');
+      user.value = null;
     } finally {
-      isLoading.value = false;
+      if (_auth.currentUser?.uid == uid) {
+        isLoading.value = false;
+      }
     }
   }
 
@@ -45,10 +72,21 @@ class ProfileController extends GetxController {
           .update(updatedUser.toMap());
 
       user.value = updatedUser;
+      Get.snackbar('Success', 'Profile updated successfully');
     } catch (e) {
       Get.snackbar('Error', 'Failed to update profile');
     } finally {
       isLoading.value = false;
     }
+  }
+  
+  Future<void> refreshUser() async {
+    await fetchUser();
+  }
+  
+  @override
+  void onClose() {
+    _authStateSubscription.cancel();
+    super.onClose();
   }
 }

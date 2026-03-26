@@ -32,7 +32,7 @@ class PersonalExpensesPage extends StatelessWidget {
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: FractionallySizedBox(
-                widthFactor: 0.85,
+                widthFactor: 0.9,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 430),
                   child: _card(controller, context),
@@ -320,7 +320,7 @@ class PersonalExpensesPage extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.85,
+        height: MediaQuery.of(context).size.height * 0.9,
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),

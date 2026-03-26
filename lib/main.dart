@@ -19,6 +19,9 @@ import 'controllers/profile_controller.dart';
 import 'screens/budgeting/personal_expenses/controllers/personal_expense_controller.dart';
 import 'screens/budgeting/shared_expenses/controllers/group_controller.dart';
 
+// 💬 Chat Controller
+import 'screens/chat/controllers/chat_controller.dart';
+
 // 🔐 Auth Screens
 import 'screens/auth/splash_screen.dart';
 import 'screens/auth/welcome_screen.dart';
@@ -32,7 +35,7 @@ import 'screens/home/home_screen.dart';
 import 'screens/assistant/campus_assistant.dart';
 import 'screens/academic_hub/academic_hub_screen.dart';
 import 'screens/budgeting/smart_budgeting.dart';
-import 'screens/payments/campuspay_scanner.dart';
+import 'screens/chat/chat_groups_list_screen.dart'; // REPLACED CampusPay
 import 'screens/home/profile_page.dart';
 
 // 📅 Timetable Screen (NO CONTROLLER)
@@ -53,7 +56,7 @@ Future<void> main() async {
   Get.put(LoginController(), permanent: true);
   Get.put(SignUpController(), permanent: true);
   Get.put(ForgotPasswordController(), permanent: true);
-  Get.put(ProfileController(), permanent: true);
+  Get.put(ProfileController(), permanent: true); // ✅ ADDED THIS LINE
 
   // 💰 Budgeting Controllers
   Get.lazyPut<PersonalExpenseController>(
@@ -66,6 +69,12 @@ Future<void> main() async {
   );
   Get.lazyPut<ExpenseController>(
     () => ExpenseController(),
+    fenix: true,
+  );
+  
+  // 💬 Chat Controller
+  Get.lazyPut<ChatController>(
+    () => ChatController(),
     fenix: true,
   );
 
@@ -132,7 +141,7 @@ class _MainShell extends StatelessWidget {
       CampusAssistantScreen(),
       AcademicHubScreen(),
       SmartBudgetingScreen(),
-      CampusPayScannerScreen(),
+      ChatGroupsListScreen(), // REPLACED CampusPayScannerScreen
       ProfilePage(),
     ];
 
@@ -188,8 +197,8 @@ class _MainShell extends StatelessWidget {
                       icon: Icon(Icons.account_balance_wallet_rounded),
                       label: 'Budgeting'),
                   BottomNavigationBarItem(
-                      icon: Icon(Icons.qr_code_scanner_rounded),
-                      label: 'CampusPay'),
+                      icon: Icon(Icons.chat_rounded), // Changed from QR to Chat icon
+                      label: 'Chat'),
                   BottomNavigationBarItem(
                       icon: Icon(Icons.person_rounded), label: 'Profile'),
                 ],
