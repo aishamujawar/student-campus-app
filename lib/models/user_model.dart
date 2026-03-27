@@ -5,12 +5,14 @@ class UserModel {
   final String fullName;
   final String email;
   final String phone;
+  final String? profilePictureUrl; // 👈 NEW: Profile picture URL
 
   UserModel({
     required this.uid,
     required this.fullName,
     required this.email,
     required this.phone,
+    this.profilePictureUrl,
   });
 
   /// 🔁 App → Firestore
@@ -20,6 +22,7 @@ class UserModel {
       'fullName': fullName,
       'email': email,
       'phone': phone,
+      if (profilePictureUrl != null) 'profilePictureUrl': profilePictureUrl,
     };
   }
 
@@ -30,6 +33,7 @@ class UserModel {
       fullName: data['fullName'] ?? '',
       email: data['email'] ?? '',
       phone: data['phone'] ?? '',
+      profilePictureUrl: data['profilePictureUrl'],
     );
   }
 
@@ -43,6 +47,7 @@ class UserModel {
       fullName: data['fullName'] ?? '',
       email: data['email'] ?? '',
       phone: data['phone'] ?? '',
+      profilePictureUrl: data['profilePictureUrl'],
     );
   }
 }

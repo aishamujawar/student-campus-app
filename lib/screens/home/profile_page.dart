@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:get/get.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:student_campus_app/models/user_model.dart';
 
 import '../../controllers/profile_controller.dart';
 import '../../repository/authentication_repository.dart';
@@ -88,7 +92,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // 🔹 Header (Home-style)
   Widget _buildHeader(ThemeData theme) {
     return Row(
       children: [
@@ -122,7 +125,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // 🔹 Profile hero with change picture option
   Widget _buildProfileHero(
     BuildContext context,
     ProfileController controller,
@@ -131,16 +133,18 @@ class ProfilePage extends StatelessWidget {
 
     return Column(
       children: [
-        GestureDetector(
-          onTap: () {
-            Get.bottomSheet(
-              _ChangeAvatarSheet(),
-              backgroundColor: Colors.white,
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-            );
-          },
+        Obx(() => GestureDetector(
+          onTap: controller.isUploadingImage.value
+              ? null
+              : () {
+                  Get.bottomSheet(
+                    _ChangeAvatarSheet(controller: controller),
+                    backgroundColor: Colors.white,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                    ),
+                  );
+                },
           child: Stack(
             children: [
               Container(
@@ -157,37 +161,51 @@ class ProfilePage extends StatelessWidget {
                 child: CircleAvatar(
                   radius: 44,
                   backgroundColor: Colors.white,
-                  child: Text(
-                    user.fullName.isNotEmpty
-                        ? user.fullName[0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF4C5D73),
+                  child: ClipOval(
+                    child: _buildProfileImage(user, controller),
+                  ),
+                ),
+              ),
+              if (!controller.isUploadingImage.value)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFF3AA8F7),
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt_rounded,
+                      size: 16,
+                      color: Colors.white,
                     ),
                   ),
                 ),
-              ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0xFF3AA8F7),
-                  ),
-                  child: const Icon(
-                    Icons.camera_alt_rounded,
-                    size: 16,
-                    color: Colors.white,
+              if (controller.isUploadingImage.value)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFF3AA8F7),
+                    ),
+                    child: const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
-        ),
+        )),
         const SizedBox(height: 12),
         Text(
           user.fullName,
@@ -209,7 +227,73 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // 🔹 Info card
+  Widget _buildProfileImage(UserModel user, ProfileController controller) {
+    final hasImage = user.profilePictureUrl != null && user.profilePictureUrl!.isNotEmpty;
+    
+    if (!hasImage) {
+      return Text(
+        user.fullName.isNotEmpty
+            ? user.fullName[0].toUpperCase()
+            : '?',
+        style: const TextStyle(
+          fontSize: 32,
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF4C5D73),
+        ),
+      );
+    }
+
+    // For web, use regular Image.network with error handling
+    if (kIsWeb) {
+      return Image.network(
+        user.profilePictureUrl!,
+        width: 88,
+        height: 88,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          print('Error loading image on web: $error');
+          return Text(
+            user.fullName.isNotEmpty
+                ? user.fullName[0].toUpperCase()
+                : '?',
+            style: const TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF4C5D73),
+            ),
+          );
+        },
+      );
+    }
+    
+    // For mobile, use CachedNetworkImage for better performance
+    return CachedNetworkImage(
+      imageUrl: user.profilePictureUrl!,
+      fit: BoxFit.cover,
+      width: 88,
+      height: 88,
+      placeholder: (context, url) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+      errorWidget: (context, url, error) => Text(
+        user.fullName.isNotEmpty
+            ? user.fullName[0].toUpperCase()
+            : '?',
+        style: const TextStyle(
+          fontSize: 32,
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF4C5D73),
+        ),
+      ),
+    );
+  }
+
   Widget _buildInfoCard({
     required IconData icon,
     required String label,
@@ -251,7 +335,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // 🔹 Actions
   Widget _buildActions() {
     return Column(
       children: [
@@ -277,7 +360,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // 🔥 Danger zone
   Widget _buildDangerZone() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,8 +389,12 @@ class ProfilePage extends StatelessWidget {
   }
 }
 
-/// 🔹 Bottom sheet for avatar change (UI-only, backend-safe)
+/// 🔹 Bottom sheet for avatar change
 class _ChangeAvatarSheet extends StatelessWidget {
+  final ProfileController controller;
+
+  const _ChangeAvatarSheet({required this.controller});
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -329,25 +415,31 @@ class _ChangeAvatarSheet extends StatelessWidget {
             title: const Text('Choose from gallery'),
             onTap: () {
               Get.back();
-              Get.snackbar(
-                'Not connected yet',
-                'Gallery upload can be wired to Firebase Storage.',
-                snackPosition: SnackPosition.BOTTOM,
-              );
+              controller.uploadProfilePicture(ImageSource.gallery);
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.delete_rounded),
-            title: const Text('Remove picture'),
-            onTap: () {
-              Get.back();
-              Get.snackbar(
-                'Removed',
-                'Profile picture removed.',
-                snackPosition: SnackPosition.BOTTOM,
-              );
-            },
-          ),
+          // Only show camera option on non-web platforms
+          if (!kIsWeb)
+            ListTile(
+              leading: const Icon(Icons.camera_alt_rounded),
+              title: const Text('Take a photo'),
+              onTap: () {
+                Get.back();
+                controller.uploadProfilePicture(ImageSource.camera);
+              },
+            ),
+          if (controller.user.value?.profilePictureUrl != null)
+            ListTile(
+              leading: const Icon(Icons.delete_rounded, color: Colors.redAccent),
+              title: const Text(
+                'Remove picture',
+                style: TextStyle(color: Colors.redAccent),
+              ),
+              onTap: () {
+                Get.back();
+                controller.removeProfilePicture();
+              },
+            ),
         ],
       ),
     );

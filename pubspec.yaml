@@ -49,6 +49,9 @@ dependencies:
   fl_chart: ^1.1.1
   shared_preferences: ^2.5.4
   image_picker: ^1.2.1
+  firebase_storage: ^13.2.0
+  cached_network_image: ^3.4.1
+  image_picker_web: ^4.0.0
  
 
 dev_dependencies:

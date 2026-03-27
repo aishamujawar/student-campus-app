@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:get/get.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:student_campus_app/models/user_model.dart';
 import '../../controllers/main_shell_controller.dart';
-import '../../controllers/profile_controller.dart'; // ✅ ADDED
+import '../../controllers/profile_controller.dart';
 
 /// Enum representing the four big feature cards on the home screen.
 enum HomeFeature {
@@ -17,7 +20,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shellController = Get.find<MainShellController>();
-    final profileController = Get.find<ProfileController>(); // ✅ ADDED
+    final profileController = Get.find<ProfileController>();
 
     return SafeArea(
       child: LayoutBuilder(
@@ -52,7 +55,7 @@ class HomeScreen extends StatelessWidget {
                           _buildHeader(
                             context,
                             shellController,
-                            profileController, // ✅ PASSED
+                            profileController,
                           ),
                           const SizedBox(height: 20),
                           _buildHeroBanner(context, shellController),
@@ -75,7 +78,7 @@ class HomeScreen extends StatelessWidget {
   Widget _buildHeader(
     BuildContext context,
     MainShellController shellController,
-    ProfileController profileController, // ✅ ADDED
+    ProfileController profileController,
   ) {
     final theme = Theme.of(context);
 
@@ -127,8 +130,6 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-
-                  /// ✅ ONLY THIS TEXT IS NOW DYNAMIC
                   Obx(() {
                     final user = profileController.user.value;
                     final name = user?.fullName.trim();
@@ -146,37 +147,92 @@ class HomeScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(width: 10),
-              Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFF4FC3F7),
-                      Color(0xFF7E8BFF),
+              Obx(() {
+                final user = profileController.user.value;
+                return Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF4FC3F7),
+                        Color(0xFF7E8BFF),
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF4FC3F7).withOpacity(0.6),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
                     ],
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF4FC3F7).withOpacity(0.6),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                  child: CircleAvatar(
+                    radius: 18,
+                    backgroundColor: Colors.white,
+                    child: ClipOval(
+                      child: _buildProfileImage(user),
                     ),
-                  ],
-                ),
-                child: const CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.person_rounded,
-                    color: Color(0xFF4C5D73),
                   ),
-                ),
-              ),
+                );
+              }),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  /// 👤 Profile image with web support
+  Widget _buildProfileImage(UserModel? user) {
+    final hasImage = user?.profilePictureUrl != null && user!.profilePictureUrl!.isNotEmpty;
+    
+    if (!hasImage) {
+      return const Icon(
+        Icons.person_rounded,
+        color: Color(0xFF4C5D73),
+        size: 18,
+      );
+    }
+
+    // 🌐 For web, use regular Image.network with error handling
+    if (kIsWeb) {
+      return Image.network(
+        user!.profilePictureUrl!,
+        width: 36,
+        height: 36,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const Center(
+            child: CircularProgressIndicator(strokeWidth: 2),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          print('Error loading profile image on web: $error');
+          return const Icon(
+            Icons.person_rounded,
+            color: Color(0xFF4C5D73),
+            size: 18,
+          );
+        },
+      );
+    }
+    
+    // 📱 For mobile, use CachedNetworkImage for better performance
+    return CachedNetworkImage(
+      imageUrl: user!.profilePictureUrl!,
+      fit: BoxFit.cover,
+      width: 36,
+      height: 36,
+      placeholder: (context, url) => const Center(
+        child: CircularProgressIndicator(strokeWidth: 2),
+      ),
+      errorWidget: (context, url, error) => const Icon(
+        Icons.person_rounded,
+        color: Color(0xFF4C5D73),
+        size: 18,
+      ),
     );
   }
 

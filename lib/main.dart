@@ -35,10 +35,10 @@ import 'screens/home/home_screen.dart';
 import 'screens/assistant/campus_assistant.dart';
 import 'screens/academic_hub/academic_hub_screen.dart';
 import 'screens/budgeting/smart_budgeting.dart';
-import 'screens/chat/chat_groups_list_screen.dart'; // REPLACED CampusPay
+import 'screens/chat/chat_groups_list_screen.dart';
 import 'screens/home/profile_page.dart';
 
-// 📅 Timetable Screen (NO CONTROLLER)
+// 📅 Timetable Screen
 import 'screens/academic_hub/timetable_page.dart';
 
 Future<void> main() async {
@@ -56,7 +56,7 @@ Future<void> main() async {
   Get.put(LoginController(), permanent: true);
   Get.put(SignUpController(), permanent: true);
   Get.put(ForgotPasswordController(), permanent: true);
-  Get.put(ProfileController(), permanent: true); // ✅ ADDED THIS LINE
+  Get.put(ProfileController(), permanent: true);
 
   // 💰 Budgeting Controllers
   Get.lazyPut<PersonalExpenseController>(
@@ -118,7 +118,7 @@ class MyApp extends StatelessWidget {
         // 🏠 MAIN SHELL
         GetPage(name: '/home', page: () => const _MainShell()),
 
-        // 📅 TIMETABLE (NO CONTROLLER USED)
+        // 📅 TIMETABLE
         GetPage(
           name: '/timetable',
           page: () => const TimetablePage(),
@@ -141,7 +141,7 @@ class _MainShell extends StatelessWidget {
       CampusAssistantScreen(),
       AcademicHubScreen(),
       SmartBudgetingScreen(),
-      ChatGroupsListScreen(), // REPLACED CampusPayScannerScreen
+      ChatGroupsListScreen(),
       ProfilePage(),
     ];
 
@@ -197,7 +197,7 @@ class _MainShell extends StatelessWidget {
                       icon: Icon(Icons.account_balance_wallet_rounded),
                       label: 'Budgeting'),
                   BottomNavigationBarItem(
-                      icon: Icon(Icons.chat_rounded), // Changed from QR to Chat icon
+                      icon: Icon(Icons.chat_rounded),
                       label: 'Chat'),
                   BottomNavigationBarItem(
                       icon: Icon(Icons.person_rounded), label: 'Profile'),

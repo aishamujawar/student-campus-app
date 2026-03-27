@@ -39,12 +39,13 @@ class SignUpController extends GetxController {
         throw Exception('User creation failed');
       }
 
-      // 2️⃣ Create Firestore user document (🔥 THIS FIXES EVERYTHING)
+      // 2️⃣ Create Firestore user document (🔥 WITH PROFILE PICTURE FIELD)
       await _db.collection('users').doc(user.uid).set({
         'uid': user.uid,
         'fullName': fullName.text.trim(),
         'email': email.text.trim(),
         'phone': '',
+        'profilePictureUrl': null,  // 👈 ADDED: Profile picture field (optional)
         'createdAt': FieldValue.serverTimestamp(),
       });
 
